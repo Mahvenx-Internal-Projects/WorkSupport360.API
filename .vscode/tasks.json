@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/WorkSupport360.API.csproj",
+        "--configuration",
+        "Debug",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "ef-migrate",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["ef", "migrations", "add", "InitialCreate", "--project", "${workspaceFolder}"],
+      "problemMatcher": []
+    },
+    {
+      "label": "ef-update",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["ef", "database", "update", "--project", "${workspaceFolder}"],
+      "problemMatcher": []
+    }
+  ]
+}

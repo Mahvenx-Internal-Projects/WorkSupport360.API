@@ -1,0 +1,7 @@
+{
+  "dotnet.defaultSolution": "WorkSupport360.API.csproj",
+  "editor.formatOnSave": true,
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp"
+  }
+}

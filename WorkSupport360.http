@@ -1,0 +1,429 @@
+### WorkSupport360 API — REST Client test file
+### Install "REST Client" extension in VS Code (humao.rest-client)
+### Usage: Click "Send Request" above any ### block
+
+@baseUrl = http://localhost:5000
+@adminToken = PASTE_ADMIN_TOKEN_HERE
+@freelancerToken = PASTE_FREELANCER_TOKEN_HERE
+@clientToken = PASTE_CLIENT_TOKEN_HERE
+
+# ─────────────────────────────────────────────────────────────
+# AUTH
+# ─────────────────────────────────────────────────────────────
+
+### 1. Login as admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@worksupport360.com",
+  "password": "Admin@123!"
+}
+
+### 2. Login as freelancer
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com",
+  "password": "Test@123!"
+}
+
+### 3. Login as client
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@abccorp.com",
+  "password": "Test@123!"
+}
+
+### 4. Google Sign-In (replace with real token from frontend)
+POST {{baseUrl}}/api/auth/google
+Content-Type: application/json
+
+{
+  "idToken": "GOOGLE_ID_TOKEN_FROM_FRONTEND"
+}
+
+### 5. Register new client
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "newclient@company.com",
+  "password": "Test@123!",
+  "name": "New Client",
+  "role": "client",
+  "companyName": "New Company Ltd",
+  "contactName": "New Client"
+}
+
+### 6. Register new freelancer
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "newfreelancer@example.com",
+  "password": "Test@123!",
+  "name": "New Dev",
+  "role": "freelancer"
+}
+
+### 7. Refresh token
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "PASTE_REFRESH_TOKEN_HERE"
+}
+
+### 8. Get current user info
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{adminToken}}
+
+### 9. Logout
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{freelancerToken}}
+Content-Type: application/json
+
+{
+  "refreshToken": "PASTE_REFRESH_TOKEN_HERE"
+}
+
+# ─────────────────────────────────────────────────────────────
+# FREELANCERS (public + protected)
+# ─────────────────────────────────────────────────────────────
+
+### 10. Search all freelancers (no auth needed)
+GET {{baseUrl}}/api/freelancers
+
+### 11. Search by skill
+GET {{baseUrl}}/api/freelancers?skill=React&isAvailable=true
+
+### 12. Filter by max rate and country
+GET {{baseUrl}}/api/freelancers?maxRate=40&currency=USD&country=India&page=1&pageSize=10
+
+### 13. Get freelancer by ID (replace GUID)
+GET {{baseUrl}}/api/freelancers/FREELANCER_GUID_HERE
+
+### 14. Get my private profile (freelancer)
+GET {{baseUrl}}/api/freelancers/me
+Authorization: Bearer {{freelancerToken}}
+
+### 15. Get my stats (freelancer)
+GET {{baseUrl}}/api/freelancers/me/stats
+Authorization: Bearer {{freelancerToken}}
+
+### 16. Update my profile (freelancer)
+PUT {{baseUrl}}/api/freelancers/me
+Authorization: Bearer {{freelancerToken}}
+Content-Type: application/json
+
+{
+  "aliasName": "Rahul S.",
+  "currentRole": "Senior Full-Stack Engineer",
+  "bio": "8 years building fintech and SaaS platforms. React + Node.js + AWS specialist.",
+  "hourlyRate": 38,
+  "currency": "USD",
+  "country": "India",
+  "timezone": "IST (UTC+5:30)",
+  "skills": ["React", "Node.js", "AWS", "TypeScript", "PostgreSQL", "Docker"],
+  "availability": [
+    { "dayOfWeek": "monday",    "isAvailable": true,  "startTime": "18:00", "endTime": "22:00" },
+    { "dayOfWeek": "tuesday",   "isAvailable": true,  "startTime": "18:00", "endTime": "22:00" },
+    { "dayOfWeek": "wednesday", "isAvailable": false  },
+    { "dayOfWeek": "thursday",  "isAvailable": true,  "startTime": "18:00", "endTime": "22:00" },
+    { "dayOfWeek": "friday",    "isAvailable": true,  "startTime": "18:00", "endTime": "22:00" },
+    { "dayOfWeek": "saturday",  "isAvailable": true,  "startTime": "10:00", "endTime": "18:00" },
+    { "dayOfWeek": "sunday",    "isAvailable": false  }
+  ]
+}
+
+### 17. Toggle availability
+PATCH {{baseUrl}}/api/freelancers/me/availability
+Authorization: Bearer {{freelancerToken}}
+Content-Type: application/json
+
+true
+
+# ─────────────────────────────────────────────────────────────
+# REQUESTS
+# ─────────────────────────────────────────────────────────────
+
+### 18. List all requests (admin sees all)
+GET {{baseUrl}}/api/requests
+Authorization: Bearer {{adminToken}}
+
+### 19. Filter pending requests
+GET {{baseUrl}}/api/requests?status=pending
+Authorization: Bearer {{adminToken}}
+
+### 20. Create request (client) — replace freelancerId GUID
+POST {{baseUrl}}/api/requests
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "freelancerId": "FREELANCER_GUID_HERE",
+  "sessionType": "demo",
+  "preferredDateTime": "2025-07-15T19:00:00Z",
+  "durationMinutes": 45,
+  "budgetMin": 30,
+  "budgetMax": 40,
+  "currency": "USD",
+  "description": "Need a React + AWS expert for a fintech dashboard. 3-month project, ~20 hrs/week."
+}
+
+### 21. Update request status (admin)
+PATCH {{baseUrl}}/api/requests/REQUEST_GUID_HERE/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "scheduled",
+  "adminNotes": "Meeting scheduled for July 15 at 7 PM IST. Rate agreed: $35/hr."
+}
+
+# ─────────────────────────────────────────────────────────────
+# MEETINGS
+# ─────────────────────────────────────────────────────────────
+
+### 22. List meetings
+GET {{baseUrl}}/api/meetings
+Authorization: Bearer {{adminToken}}
+
+### 23. Schedule meeting (admin) — replace request GUID
+POST {{baseUrl}}/api/meetings
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "requestId": "REQUEST_GUID_HERE",
+  "scheduledAt": "2025-07-15T13:30:00Z",
+  "durationMinutes": 45,
+  "platform": "zoom",
+  "meetingLink": "https://zoom.us/j/123456789",
+  "agreedRate": 35,
+  "currency": "USD"
+}
+
+### 24. Record meeting outcome (admin)
+PATCH {{baseUrl}}/api/meetings/MEETING_GUID_HERE/outcome
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "outcome": "approved",
+  "notes": "Client happy with demo. Project to start July 20."
+}
+
+# ─────────────────────────────────────────────────────────────
+# PROJECTS
+# ─────────────────────────────────────────────────────────────
+
+### 25. List projects (admin sees all)
+GET {{baseUrl}}/api/projects
+Authorization: Bearer {{adminToken}}
+
+### 26. My projects (client)
+GET {{baseUrl}}/api/projects
+Authorization: Bearer {{clientToken}}
+
+### 27. Create project (admin) — replace client + freelancer GUIDs
+POST {{baseUrl}}/api/projects
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "E-commerce Recommendation Engine",
+  "clientId": "CLIENT_GUID_HERE",
+  "freelancerId": "FREELANCER_GUID_HERE",
+  "description": "ML-powered product recommendation engine for XYZ Ltd",
+  "skills": ["Python", "ML", "SQL", "FastAPI"],
+  "hourlyRate": 2500,
+  "currency": "INR",
+  "estimatedHours": 80,
+  "startDate": "2025-07-01T00:00:00Z",
+  "endDate": "2025-08-31T00:00:00Z",
+  "totalBudget": 200000,
+  "milestones": [
+    { "title": "Data pipeline setup", "description": "ETL + feature store", "dueDate": "2025-07-20T00:00:00Z", "amount": 60000 },
+    { "title": "Model training", "description": "Train + evaluate model", "dueDate": "2025-08-10T00:00:00Z", "amount": 80000 },
+    { "title": "API deployment", "description": "FastAPI + Docker", "dueDate": "2025-08-31T00:00:00Z", "amount": 60000 }
+  ]
+}
+
+### 28. Update project progress (freelancer/admin)
+PATCH {{baseUrl}}/api/projects/PROJECT_GUID_HERE/progress
+Authorization: Bearer {{freelancerToken}}
+Content-Type: application/json
+
+{
+  "progress": 65,
+  "status": "active"
+}
+
+# ─────────────────────────────────────────────────────────────
+# TIMESHEETS
+# ─────────────────────────────────────────────────────────────
+
+### 29. List timesheets
+GET {{baseUrl}}/api/timesheets
+Authorization: Bearer {{freelancerToken}}
+
+### 30. Submit weekly timesheet (freelancer)
+POST {{baseUrl}}/api/timesheets
+Authorization: Bearer {{freelancerToken}}
+Content-Type: application/json
+
+{
+  "projectId": "PROJECT_GUID_HERE",
+  "weekStart": "2025-07-14T00:00:00Z",
+  "weekEnd": "2025-07-18T00:00:00Z",
+  "entries": [
+    { "date": "2025-07-14T00:00:00Z", "hours": 4, "description": "Auth module — JWT implementation" },
+    { "date": "2025-07-15T00:00:00Z", "hours": 5, "description": "Dashboard UI — header + sidebar components" },
+    { "date": "2025-07-16T00:00:00Z", "hours": 3, "description": "API integration — user endpoints" },
+    { "date": "2025-07-17T00:00:00Z", "hours": 4, "description": "Bug fixes + code review" }
+  ]
+}
+
+### 31. Approve timesheet (admin/client)
+PATCH {{baseUrl}}/api/timesheets/TIMESHEET_GUID_HERE/approve
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "approve": true
+}
+
+### 32. Reject timesheet with reason
+PATCH {{baseUrl}}/api/timesheets/TIMESHEET_GUID_HERE/approve
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "approve": false,
+  "reason": "Hours on July 16 appear too high. Please clarify the tasks."
+}
+
+# ─────────────────────────────────────────────────────────────
+# INVOICES
+# ─────────────────────────────────────────────────────────────
+
+### 33. List invoices
+GET {{baseUrl}}/api/invoices
+Authorization: Bearer {{adminToken}}
+
+### 34. Get specific invoice
+GET {{baseUrl}}/api/invoices/INVOICE_GUID_HERE
+Authorization: Bearer {{adminToken}}
+
+### 35. Mark invoice as paid (admin)
+PATCH {{baseUrl}}/api/invoices/INVOICE_GUID_HERE/mark-paid
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": "INVOICE_GUID_HERE",
+  "method": "Bank Transfer",
+  "transactionId": "TXN-20250715-8823"
+}
+
+### 36. Mark overdue invoices
+POST {{baseUrl}}/api/invoices/mark-overdue
+Authorization: Bearer {{adminToken}}
+
+# ─────────────────────────────────────────────────────────────
+# PAYMENTS
+# ─────────────────────────────────────────────────────────────
+
+### 37. List all payments (admin)
+GET {{baseUrl}}/api/payments
+Authorization: Bearer {{adminToken}}
+
+### 38. My payments (freelancer)
+GET {{baseUrl}}/api/payments
+Authorization: Bearer {{freelancerToken}}
+
+# ─────────────────────────────────────────────────────────────
+# NOTIFICATIONS
+# ─────────────────────────────────────────────────────────────
+
+### 39. Get my notifications
+GET {{baseUrl}}/api/notifications
+Authorization: Bearer {{adminToken}}
+
+### 40. Get unread only
+GET {{baseUrl}}/api/notifications?unreadOnly=true
+Authorization: Bearer {{adminToken}}
+
+### 41. Mark one as read
+PATCH {{baseUrl}}/api/notifications/NOTIF_GUID_HERE/read
+Authorization: Bearer {{adminToken}}
+
+### 42. Mark all as read
+POST {{baseUrl}}/api/notifications/mark-all-read
+Authorization: Bearer {{adminToken}}
+
+# ─────────────────────────────────────────────────────────────
+# STANDUPS
+# ─────────────────────────────────────────────────────────────
+
+### 43. Submit daily standup (freelancer)
+POST {{baseUrl}}/api/standups
+Authorization: Bearer {{freelancerToken}}
+Content-Type: application/json
+
+{
+  "projectId": "PROJECT_GUID_HERE",
+  "date": "2025-07-15T00:00:00Z",
+  "yesterdayWork": "Completed auth module — JWT + refresh token implementation",
+  "todayPlan": "Start dashboard UI header and sidebar components",
+  "blockers": "Waiting for client to share brand color tokens",
+  "hoursWorked": 4
+}
+
+### 44. Get standups for a project
+GET {{baseUrl}}/api/standups/project/PROJECT_GUID_HERE
+Authorization: Bearer {{adminToken}}
+
+# ─────────────────────────────────────────────────────────────
+# REVIEWS
+# ─────────────────────────────────────────────────────────────
+
+### 45. Submit review (client)
+POST {{baseUrl}}/api/reviews
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "projectId": "PROJECT_GUID_HERE",
+  "freelancerId": "FREELANCER_GUID_HERE",
+  "rating": 5,
+  "comment": "Rahul was exceptional — delivered ahead of schedule, communicated daily, zero issues."
+}
+
+# ─────────────────────────────────────────────────────────────
+# ADMIN
+# ─────────────────────────────────────────────────────────────
+
+### 46. Platform stats (admin dashboard)
+GET {{baseUrl}}/api/admin/stats
+Authorization: Bearer {{adminToken}}
+
+### 47. Monthly leaderboard
+GET {{baseUrl}}/api/admin/leaderboard
+Authorization: Bearer {{adminToken}}
+
+### 48. Revenue report (last 12 months)
+GET {{baseUrl}}/api/admin/reports/revenue
+Authorization: Bearer {{adminToken}}
+
+### 49. Promote user role (admin)
+PATCH {{baseUrl}}/api/admin/users/USER_GUID_HERE/role
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+"freelancer"
