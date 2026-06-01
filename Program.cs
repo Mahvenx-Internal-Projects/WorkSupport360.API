@@ -36,7 +36,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 var frontendUrl = builder.Configuration["App:FrontendUrl"] ?? "http://localhost:3000";
 builder.Services.AddCors(opts => opts.AddPolicy("Frontend", p =>
-    p.WithOrigins(frontendUrl, "https://worksupport360.com", "http://localhost:3000")
+    p.WithOrigins(
+        frontendUrl,
+        "https://worksupport.com",
+        "https://www.worksupport.com",
+        "http://worksupport.com",
+        "https://worksupport360.com",
+        "https://www.worksupport360.com",
+        "http://204.168.159.160:5001",
+        "http://localhost:3000",
+        "http://localhost:5001"
+     )
      .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 builder.Services.AddEndpointsApiExplorer();
@@ -135,6 +145,11 @@ static async Task SeedAsync(AppDbContext db, ILogger log)
     // Admin
     var admin = new User { Email="admin@worksupport360.com", Name="Admin User", Role="admin", MobileNumber="9441363687", PasswordHash=BCrypt.Net.BCrypt.HashPassword("Admin@123!"), EmailVerified=true };
     db.Users.Add(admin);
+
+    // Support Agents (role = "agent")
+    var agent1 = new User { Email="support1@worksupport360.com", Name="Ravi Kumar", Role="agent", MobileNumber="9000000001", PasswordHash=BCrypt.Net.BCrypt.HashPassword("Agent@123!"), EmailVerified=true };
+    var agent2 = new User { Email="support2@worksupport360.com", Name="Preethi S.", Role="agent", MobileNumber="9000000002", PasswordHash=BCrypt.Net.BCrypt.HashPassword("Agent@123!"), EmailVerified=true };
+    db.Users.AddRange(agent1, agent2);
 
     // Freelancers
     void AddFreelancer(string email, string name, string company, string role,

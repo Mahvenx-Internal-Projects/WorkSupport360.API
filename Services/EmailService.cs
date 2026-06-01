@@ -35,6 +35,7 @@ public interface IEmailService
     Task SendQuickSupportConfirmationAsync(string toEmail, string toName,
         string freelancerAlias, decimal rate, string currency, Guid sessionId);
     Task SendContactUsEmailAsync(string fromName, string fromEmail, string reason, string message);
+    Task SendAsync(string toEmail, string toName, string subject, string htmlBody);
 }
 
 public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log) : IEmailService
@@ -59,43 +60,13 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
   body{font-family:-apple-system,sans-serif;background:#f8f9ff;margin:0;padding:24px;}
   .card{background:#fff;border-radius:16px;padding:32px;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;}
   .logo{color:#1a1a2e;font-weight:900;font-size:20px;margin-bottom:24px;}
-  .logo span{color:#f97316;}
-  h2{color:#1a1a2e;font-size:18px;margin:0 0 12px;}
-  p{color:#374151;line-height:1.6;margin:0 0 12px;}
-  .btn{display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px;margin:12px 0;}
-  .btn-orange{background:linear-gradient(135deg,#f97316,#ea580c);}
-  .info-table{width:100%;background:#f8f9ff;border-radius:12px;padding:16px;margin:16px 0;border-collapse:collapse;}
-  .info-table td{padding:6px 0;color:#374151;font-size:14px;}
-  .info-table td:first-child{color:#6b7280;width:40%;}
-  .badge{display:inline-block;background:#1a1a2e;color:#f97316;border-radius:8px;padding:4px 12px;font-size:13px;font-weight:700;}
-  .alert{background:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;border-radius:8px;margin:12px 0;font-size:13px;color:#9a3412;}
-  .success{background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;border-radius:8px;margin:12px 0;font-size:13px;color:#15803d;}
-  .footer{text-align:center;font-size:11px;color:#9ca3af;margin-top:20px;}
-  hr{border:none;border-top:1px solid #f3f4f6;margin:20px 0;}
 </style>
 </head>
-
 <body>
 <div class="card">
-
-  <div class="logo">
-    Work<span>Support</span>360
-  </div>
-
+  <div class="logo">Work<span>Support</span>360</div>
   <h2>{{title}}</h2>
-
   {{body}}
-
-  <hr/>
-
-  <p class="footer">
-    © 2025 WorkSupport360 · help@worksupport360.com · WhatsApp: +91-9441363687
-    <br/>
-    <a href="https://worksupport360.com" style="color:#1a1a2e">
-      worksupport360.com
-    </a>
-  </p>
-
 </div>
 </body>
 </html>
@@ -103,7 +74,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
 
     public async Task SendWelcomeEmailAsync(string toEmail, string toName, string method)
     {
-        var body = Layout("Welcome to WorkSupport360! ", $"""
+        var body = Layout("Welcome to WorkSupport360! 🎉", $"""
             <p>Hi {toName},</p>
             <p>You've successfully joined WorkSupport360 via <span class="badge">{method}</span>.</p>
             <p>WorkSupport360 connects you with top tech experts from MNC companies — all working under a privacy alias. Your employer is never notified.</p>
@@ -111,16 +82,16 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
             <div class="alert">📧 Please verify your email to complete activation.</div>
             <p style="font-size:12px;color:#9ca3af;">Questions? WhatsApp: +91-{_whatsapp}</p>
             """);
-        await SendAsync(toEmail, toName, "Welcome to WorkSupport360! ", body);
+        await SendAsync(toEmail, toName, "Welcome to WorkSupport360! 🎉", body);
     }
 
     public async Task SendVerificationEmailAsync(string toEmail, string toName, string token)
     {
         var link = $"{_appUrl}/api/auth/verify-email?token={token}";
-        var body = Layout("Verify your email ✉", $"""
+        var body = Layout("Verify your email ✉️", $"""
             <p>Hi {toName},</p>
             <p>Click the button below to verify your email address and activate your WorkSupport360 account.</p>
-            <a href="{link}" class="btn btn-orange"> Verify my email</a>
+            <a href="{link}" class="btn btn-orange">✅ Verify my email</a>
             <p style="font-size:12px;color:#9ca3af;margin-top:16px">
               This link expires in 24 hours. If you did not register, ignore this email.<br/>
               Or copy this link: {link}
@@ -134,7 +105,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
         decimal agreedRate, string budgetType, string currency)
     {
         var rateStr = budgetType == "fixed" ? $"{currency} {agreedRate} fixed" : $"{currency} {agreedRate}/hr";
-        var body = Layout($"Meeting confirmed — {scheduledAt:ddd, MMM d 'at' h:mm tt} UTC ", $"""
+        var body = Layout($"Meeting confirmed — {scheduledAt:ddd, MMM d 'at' h:mm tt} UTC ✅", $"""
             <p>Hi {toName},</p>
             <p>Your <strong>{platform}</strong> meeting has been scheduled by WorkSupport360 admin.</p>
             <table class="info-table">
@@ -152,7 +123,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
     public async Task SendTimesheetApprovalAsync(string toEmail, string toName,
         string projectName, decimal hours, decimal amount, bool approved, string? reason = null)
     {
-        var subject = approved ? "Timesheet approved " : "Timesheet rejected ";
+        var subject = approved ? "Timesheet approved ✅" : "Timesheet rejected ⚠️";
         var body = Layout(approved ? "Timesheet approved" : "Timesheet requires attention", $"""
             <p>Hi {toName},</p>
             <p>Your timesheet for <strong>{projectName}</strong> has been
@@ -163,7 +134,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
               <tr><td>Amount</td><td>USD {amount:N2}</td></tr>
             </table>
             {(approved
-                ? "<div class=\"success\"> An invoice has been generated. Payment will be processed within 3 business days.</div>"
+                ? "<div class=\"success\">✅ An invoice has been generated. Payment will be processed within 3 business days.</div>"
                 : $"<div class=\"alert\">Reason: {reason ?? "Please contact admin for details."}<br/>Please correct and resubmit.</div>")}
             """);
         await SendAsync(toEmail, toName, subject, body);
@@ -174,7 +145,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
         bool isGst, decimal gstAmount, string? bankDetails)
     {
         var gstLine = isGst ? $"<tr><td>GST (18%)</td><td><strong>{currency} {gstAmount:N2}</strong></td></tr>" : "";
-        var body = Layout($"Invoice {invoiceNumber} — Payment Instructions ", $"""
+        var body = Layout($"Invoice {invoiceNumber} — Payment Instructions 💳", $"""
             <p>Hi {toName},</p>
             <p>Your invoice is ready. Please make the payment using the details below.</p>
             <table class="info-table">
@@ -194,7 +165,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
     public async Task SendPaymentConfirmationAsync(string toEmail, string toName,
         decimal amount, string currency, string invoiceNumber)
     {
-        var body = Layout("Payment received ", $"""
+        var body = Layout("Payment received ✅", $"""
             <p>Hi {toName},</p>
             <div class="success">✅ Your payment of <strong>{currency} {amount:N2}</strong> for invoice <strong>{invoiceNumber}</strong> has been received.</div>
             <p>Project work will continue as scheduled. Thank you!</p>
@@ -355,7 +326,7 @@ public partial class EmailService(IConfiguration cfg, ILogger<EmailService> log)
         await SendAsync(fromEmail, fromName, "We received your message — WorkSupport360", reply);
     }
 
-    internal async Task SendAsync(string toEmail, string toName, string subject, string htmlBody)
+    public async Task SendAsync(string toEmail, string toName, string subject, string htmlBody)
     {
         if (string.IsNullOrEmpty(_user))
         {

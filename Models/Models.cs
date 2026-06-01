@@ -23,6 +23,8 @@ public class User
     public DateTime CreatedAt       { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt    { get; set; }
     public DateTime? LastLogoutAt   { get; set; }
+    public int       LoginCount     { get; set; } = 0;
+    public int       ActiveSessions { get; set; } = 0;
 
     public Freelancer?               FreelancerProfile { get; set; }
     public Client?                   ClientProfile     { get; set; }
@@ -552,15 +554,26 @@ public class QuickSupportSession
 // ══════════════════════════════════════════════════════════════
 public class SupportTicket
 {
-    [Key] public Guid Id         { get; set; } = Guid.NewGuid();
-    public Guid UserId           { get; set; }
-    [MaxLength(200)] public string Subject   { get; set; } = "";
-    [MaxLength(20)] public string Category   { get; set; } = "general";
-    [MaxLength(20)] public string Status     { get; set; } = "open";
-    [MaxLength(20)] public string Priority   { get; set; } = "normal";
-    public DateTime CreatedAt    { get; set; } = DateTime.UtcNow;
-    public DateTime? ResolvedAt  { get; set; }
-    public User User             { get; set; } = null!;
+    [Key] public Guid Id           { get; set; } = Guid.NewGuid();
+    public Guid UserId             { get; set; }
+    [MaxLength(200)] public string Subject    { get; set; } = "";
+    [MaxLength(20)]  public string Category   { get; set; } = "general";
+    [MaxLength(20)]  public string Status     { get; set; } = "bot";  // bot|open|assigned|resolved|closed
+    [MaxLength(20)]  public string Priority   { get; set; } = "normal";
+    // Assignment
+    public Guid? AssignedAgentId   { get; set; }                     // admin user assigned
+    [MaxLength(100)] public string? AssignedAgentName { get; set; }
+    public DateTime? AssignedAt    { get; set; }
+    // Metadata collected by bot
+    [MaxLength(50)]  public string? UserType  { get; set; }           // client|freelancer|visitor
+    [MaxLength(500)] public string? BotSummary { get; set; }          // summary of bot Q&A
+    [MaxLength(100)] public string? ContactEmail { get; set; }
+    [MaxLength(20)]  public string? ContactPhone { get; set; }
+    public bool IsRead             { get; set; } = false;             // admin has seen it
+    public DateTime CreatedAt      { get; set; } = DateTime.UtcNow;
+    public DateTime? ResolvedAt    { get; set; }
+    public DateTime? LastMessageAt { get; set; } = DateTime.UtcNow;
+    public User User               { get; set; } = null!;
     public ICollection<SupportMessage> Messages { get; set; } = [];
 }
 

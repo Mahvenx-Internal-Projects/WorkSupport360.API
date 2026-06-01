@@ -19,6 +19,7 @@ public interface IAuthService
     Task<AuthResponse?> RefreshAsync(string refreshToken);
     Task               RevokeTokenAsync(string refreshToken);
     Task               LogoutAllDevicesAsync(Guid userId);
+    Task<AuthResponse?> ForceLoginAsync(LoginRequest req);
     Task<User?>        VerifyEmailAsync(string token);
     Task               CompleteFreelancerProfileAsync(Guid userId, CompleteProfileRequest req);
 }
@@ -34,14 +35,72 @@ public class AuthService(AppDbContext db, IConfiguration cfg, IEmailService emai
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest req)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email && u.IsActive);
+        var user = await db.Users
+            .Include(u => u.RefreshTokens)
+            .FirstOrDefaultAsync(u => u.Email == req.Email && u.IsActive);
+
         if (user is null || string.IsNullOrEmpty(user.PasswordHash)) return null;
         if (!BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash)) return null;
 
-        user.LastLoginAt = DateTime.UtcNow;
+        // Block unverified
+        if (!user.EmailVerified)
+            throw new InvalidOperationException("EMAIL_NOT_VERIFIED");
 
-        // Log attendance
-        db.AttendanceLogs.Add(new AttendanceLog { UserId = user.Id, Action = "login" });
+        // Check for existing active sessions
+        var activeSessions = user.RefreshTokens
+            .Where(r => !r.IsRevoked && r.ExpiresAt > DateTime.UtcNow)
+            .ToList();
+
+        if (activeSessions.Any())
+        {
+            // Return special response indicating active session exists
+            throw new InvalidOperationException($"ACTIVE_SESSION|{user.LastLoginAt:yyyy-MM-ddTHH:mm:ss}|{activeSessions.Count}");
+        }
+
+        // Update tracking
+        user.LastLoginAt    = DateTime.UtcNow;
+        user.LoginCount    += 1;
+        user.ActiveSessions = 1;
+
+        db.AttendanceLogs.Add(new AttendanceLog {
+            UserId = user.Id, Action = "login",
+            Note = $"Login #{user.LoginCount} from {req.DeviceInfo ?? "unknown device"}"
+        });
+        await db.SaveChangesAsync();
+
+        return await BuildTokensAsync(user, req.DeviceInfo);
+    }
+
+    // Force login — kills existing sessions then logs in
+    public async Task<AuthResponse?> ForceLoginAsync(LoginRequest req)
+    {
+        var user = await db.Users
+            .Include(u => u.RefreshTokens)
+            .FirstOrDefaultAsync(u => u.Email == req.Email && u.IsActive);
+
+        if (user is null || string.IsNullOrEmpty(user.PasswordHash)) return null;
+        if (!BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash)) return null;
+        if (!user.EmailVerified) throw new InvalidOperationException("EMAIL_NOT_VERIFIED");
+
+        // Kill all existing sessions
+        var sessions = user.RefreshTokens.Where(r => !r.IsRevoked).ToList();
+        foreach (var s in sessions) s.IsRevoked = true;
+
+        db.AttendanceLogs.Add(new AttendanceLog {
+            UserId = user.Id, Action = "logout",
+            Note = $"Force-logged out by new login. Killed {sessions.Count} session(s)."
+        });
+
+        // Now login
+        user.LastLoginAt    = DateTime.UtcNow;
+        user.LastLogoutAt   = DateTime.UtcNow; // previous session ended
+        user.LoginCount    += 1;
+        user.ActiveSessions = 1;
+
+        db.AttendanceLogs.Add(new AttendanceLog {
+            UserId = user.Id, Action = "login",
+            Note = $"Force login #{user.LoginCount} — previous session killed"
+        });
         await db.SaveChangesAsync();
 
         return await BuildTokensAsync(user, req.DeviceInfo);
