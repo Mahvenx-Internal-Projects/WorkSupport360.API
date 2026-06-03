@@ -38,6 +38,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ContactSubmission>   ContactSubmissions   => Set<ContactSubmission>();
     public DbSet<FeaturedBoost>       FeaturedBoosts       => Set<FeaturedBoost>();
     public DbSet<PlatformSetting>     PlatformSettings     => Set<PlatformSetting>();
+    public DbSet<JobRequirement>      JobRequirements      => Set<JobRequirement>();
+    public DbSet<RequirementAssignment> RequirementAssignments => Set<RequirementAssignment>();
+    public DbSet<MessageThread>     MessageThreads     => Set<MessageThread>();
+    public DbSet<InboxMessage>      InboxMessages      => Set<InboxMessage>();
+    public DbSet<ThreadParticipant> ThreadParticipants => Set<ThreadParticipant>();
+    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

@@ -93,11 +93,116 @@ public class RequestsController(AppDbContext db, IEmailService email) : Controll
         return Ok(new { message = "Status updated", status = dto.Status });
     }
 
+    // ── Express Interest — client shares budget ──────────────────
+    [HttpPost("{id:guid}/express-interest"), Authorize(Roles = "client")]
+    public async Task<IActionResult> ExpressInterest(Guid id, [FromBody] ExpressInterestDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var client = await db.Clients.FirstOrDefaultAsync(c => c.UserId == userId);
+        if (client is null) return NotFound(new { message = "Client profile not found" });
+
+        var req = await db.DemoRequests
+            .Include(r => r.Freelancer).ThenInclude(f => f.User)
+            .Include(r => r.Client)
+            .FirstOrDefaultAsync(r => r.Id == id && r.ClientId == client.Id);
+        if (req is null) return NotFound(new { message = "Request not found" });
+
+        req.ClientInterested    = true;
+        req.ClientOfferedBudget = dto.OfferedBudget;
+        req.ClientBudgetType    = dto.BudgetType ?? "hourly";
+        req.ClientMessage       = dto.Message;
+        req.ClientInterestedAt  = DateTime.UtcNow;
+        req.InterestStatus      = "client_interested";
+
+        // Notify all admins via in-app notification
+        var admins = await db.Users.Where(u => u.Role == "admin").ToListAsync();
+        foreach (var admin in admins)
+            db.Notifications.Add(new Notification {
+                UserId    = admin.Id,
+                Type      = "interest",
+                Priority  = "urgent",
+                Title     = $"🔥 {client.ContactName} is interested in {req.Freelancer.AliasName}!",
+                Message   = $"Budget: {dto.BudgetType} {dto.OfferedBudget} {req.Currency}. {dto.Message?.Substring(0, Math.Min(dto.Message?.Length ?? 0, 80))}",
+                ActionUrl = "/admin/requests",
+            });
+
+        // Email admin
+        try
+        {
+            await email.SendRequestReceivedAsync(
+                "admin@worksupport360.com", "Admin",
+                req.Freelancer.AliasName, "interest",
+                DateTime.UtcNow.AddDays(3));
+        }
+        catch { /* non-blocking */ }
+
+        await db.SaveChangesAsync();
+        return Ok(new {
+            message        = "Interest submitted! Admin will contact you within 4 hours.",
+            interestStatus = "client_interested"
+        });
+    }
+
+    // ── Notify Freelancer — admin sends email to freelancer ───────
+    [HttpPost("{id:guid}/notify-freelancer"), Authorize(Roles = "admin")]
+    public async Task<IActionResult> NotifyFreelancer(Guid id, [FromBody] NotifyFreelancerDto dto)
+    {
+        var req = await db.DemoRequests
+            .Include(r => r.Freelancer).ThenInclude(f => f.User)
+            .Include(r => r.Client)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (req is null) return NotFound();
+
+        req.AdminNotes     = dto.AdminNotes;
+        req.InterestStatus = "freelancer_notified";
+
+        // In-app notification to freelancer
+        db.Notifications.Add(new Notification {
+            UserId    = req.Freelancer.UserId,
+            Type      = "interest",
+            Priority  = "urgent",
+            Title     = "🎯 A client is interested in working with you!",
+            Message   = $"Budget offered: {req.ClientBudgetType} {req.ClientOfferedBudget} {req.Currency}. {dto.AdminNotes ?? "Check portal for details."}",
+            ActionUrl = "/freelancer",
+        });
+
+        // Email to freelancer
+        try
+        {
+            await email.SendFreelancerAvailabilityCheckAsync(
+                req.Freelancer.User.Email,
+                req.Freelancer.User.Name,
+                req.Client?.CompanyName ?? "A client",
+                DateTime.UtcNow.AddDays(7),
+                "Zoom", "");
+        }
+        catch { /* non-blocking */ }
+
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Freelancer notified via email + in-app notification" });
+    }
+
     private static DemoRequestDto Map(DemoRequest r) => new(
         r.Id, r.ClientId, r.Client.CompanyName, r.Client.User?.MobileNumber ?? "",
         r.FreelancerId, r.Freelancer.AliasName, r.Freelancer.User?.MobileNumber ?? "",
         r.SessionType, r.PreferredDateTime, r.DurationMinutes,
         r.BudgetMin, r.BudgetMax, r.BudgetType, r.Currency,
         r.Description, r.Status, r.AdminNotes,
-        r.FinalBudget, r.FinalBudgetType, r.CreatedAt);
+        r.FinalBudget, r.FinalBudgetType, r.CreatedAt,
+        r.ClientInterested, r.ClientOfferedBudget, r.ClientBudgetType,
+        r.ClientMessage, r.ClientInterestedAt, r.InterestStatus,
+        r.Freelancer.AliasName,
+        r.Client.User?.Email ?? "",
+        r.Client.CompanyName,
+        r.Freelancer.User?.Email ?? "");
 }
+
+public record ExpressInterestDto(
+    decimal? OfferedBudget = null,
+    string?  BudgetType   = "hourly",
+    string?  Message      = null
+);
+
+public record NotifyFreelancerDto(
+    string? AdminNotes = null
+);

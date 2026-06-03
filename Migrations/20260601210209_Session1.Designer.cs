@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WorkSupport360.API.Data;
 
@@ -11,9 +12,11 @@ using WorkSupport360.API.Data;
 namespace WorkSupport360.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260601210209_Session1")]
+    partial class Session1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -611,41 +614,6 @@ namespace WorkSupport360.API.Migrations
                     b.ToTable("FreelancerSkills");
                 });
 
-            modelBuilder.Entity("WorkSupport360.API.Models.InboxMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<Guid>("RecipientId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("SenderId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("SentAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("ThreadId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SenderId");
-
-                    b.HasIndex("ThreadId");
-
-                    b.ToTable("InboxMessages");
-                });
-
             modelBuilder.Entity("WorkSupport360.API.Models.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -786,99 +754,6 @@ namespace WorkSupport360.API.Migrations
                     b.ToTable("InvoiceTimesheets");
                 });
 
-            modelBuilder.Entity("WorkSupport360.API.Models.JobRequirement", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<decimal?>("BudgetMax")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<decimal?>("BudgetMin")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<string>("BudgetType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<Guid>("ClientId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("varchar(10)");
-
-                    b.Property<string>("EngagementType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("ExperienceMax")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("ExperienceMin")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<int?>("HybridDaysPerWeek")
-                        .HasColumnType("int");
-
-                    b.Property<string>("JobDescription")
-                        .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("varchar(5000)");
-
-                    b.Property<string>("Location")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<int>("OpenPositions")
-                        .HasColumnType("int");
-
-                    b.Property<string>("RequiredSkills")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("WorkMode")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
-                    b.Property<string>("WorkTimings")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.ToTable("JobRequirements");
-                });
-
             modelBuilder.Entity("WorkSupport360.API.Models.Meeting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -961,60 +836,6 @@ namespace WorkSupport360.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Meetings");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.MessageAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<Guid>("ThreadId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("UploadedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ThreadId");
-
-                    b.ToTable("MessageAttachments");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.MessageThread", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsAdminThread")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime>("LastMessageAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("MessageThreads");
                 });
 
             modelBuilder.Entity("WorkSupport360.API.Models.Milestone", b =>
@@ -1516,46 +1337,6 @@ namespace WorkSupport360.API.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("WorkSupport360.API.Models.RequirementAssignment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("AdminNote")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("FreelancerId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("FreelancerNote")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<DateTime?>("FreelancerRespondedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("RequirementId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FreelancerId");
-
-                    b.HasIndex("RequirementId");
-
-                    b.ToTable("RequirementAssignments");
-                });
-
             modelBuilder.Entity("WorkSupport360.API.Models.Review", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1762,27 +1543,6 @@ namespace WorkSupport360.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("SupportTickets");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.ThreadParticipant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("ThreadId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ThreadId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("ThreadParticipants");
                 });
 
             modelBuilder.Entity("WorkSupport360.API.Models.Timesheet", b =>
@@ -2100,25 +1860,6 @@ namespace WorkSupport360.API.Migrations
                     b.Navigation("Freelancer");
                 });
 
-            modelBuilder.Entity("WorkSupport360.API.Models.InboxMessage", b =>
-                {
-                    b.HasOne("WorkSupport360.API.Models.User", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WorkSupport360.API.Models.MessageThread", "Thread")
-                        .WithMany("Messages")
-                        .HasForeignKey("ThreadId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Sender");
-
-                    b.Navigation("Thread");
-                });
-
             modelBuilder.Entity("WorkSupport360.API.Models.Invoice", b =>
                 {
                     b.HasOne("WorkSupport360.API.Models.Client", "Client")
@@ -2176,17 +1917,6 @@ namespace WorkSupport360.API.Migrations
                     b.Navigation("Timesheet");
                 });
 
-            modelBuilder.Entity("WorkSupport360.API.Models.JobRequirement", b =>
-                {
-                    b.HasOne("WorkSupport360.API.Models.Client", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Client");
-                });
-
             modelBuilder.Entity("WorkSupport360.API.Models.Meeting", b =>
                 {
                     b.HasOne("WorkSupport360.API.Models.Client", "Client")
@@ -2212,17 +1942,6 @@ namespace WorkSupport360.API.Migrations
                     b.Navigation("Freelancer");
 
                     b.Navigation("Request");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.MessageAttachment", b =>
-                {
-                    b.HasOne("WorkSupport360.API.Models.MessageThread", "Thread")
-                        .WithMany("Attachments")
-                        .HasForeignKey("ThreadId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Thread");
                 });
 
             modelBuilder.Entity("WorkSupport360.API.Models.Milestone", b =>
@@ -2344,25 +2063,6 @@ namespace WorkSupport360.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("WorkSupport360.API.Models.RequirementAssignment", b =>
-                {
-                    b.HasOne("WorkSupport360.API.Models.Freelancer", "Freelancer")
-                        .WithMany()
-                        .HasForeignKey("FreelancerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WorkSupport360.API.Models.JobRequirement", "Requirement")
-                        .WithMany("Assignments")
-                        .HasForeignKey("RequirementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Freelancer");
-
-                    b.Navigation("Requirement");
-                });
-
             modelBuilder.Entity("WorkSupport360.API.Models.Review", b =>
                 {
                     b.HasOne("WorkSupport360.API.Models.Client", "Client")
@@ -2408,25 +2108,6 @@ namespace WorkSupport360.API.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.ThreadParticipant", b =>
-                {
-                    b.HasOne("WorkSupport360.API.Models.MessageThread", "Thread")
-                        .WithMany("Participants")
-                        .HasForeignKey("ThreadId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WorkSupport360.API.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Thread");
 
                     b.Navigation("User");
                 });
@@ -2522,20 +2203,6 @@ namespace WorkSupport360.API.Migrations
                     b.Navigation("LineItems");
 
                     b.Navigation("Payment");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.JobRequirement", b =>
-                {
-                    b.Navigation("Assignments");
-                });
-
-            modelBuilder.Entity("WorkSupport360.API.Models.MessageThread", b =>
-                {
-                    b.Navigation("Attachments");
-
-                    b.Navigation("Messages");
-
-                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("WorkSupport360.API.Models.Project", b =>

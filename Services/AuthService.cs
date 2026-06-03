@@ -46,21 +46,31 @@ public class AuthService(AppDbContext db, IConfiguration cfg, IEmailService emai
         if (!user.EmailVerified)
             throw new InvalidOperationException("EMAIL_NOT_VERIFIED");
 
-        // Check for existing active sessions
-        var activeSessions = user.RefreshTokens
-            .Where(r => !r.IsRevoked && r.ExpiresAt > DateTime.UtcNow)
-            .ToList();
+        // Re-query active sessions from DB to get fresh state
+        // (the Include may have stale data if logout happened in same context)
+        var activeSessions = await db.RefreshTokens
+            .Where(r => r.UserId == user.Id && !r.IsRevoked && r.ExpiresAt > DateTime.UtcNow)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
 
         if (activeSessions.Any())
         {
-            // Return special response indicating active session exists
-            throw new InvalidOperationException($"ACTIVE_SESSION|{user.LastLoginAt:yyyy-MM-ddTHH:mm:ss}|{activeSessions.Count}");
+            var lastSession = activeSessions.First();
+            var lastLoginDisplay = user.LastLoginAt.HasValue 
+                ? user.LastLoginAt.Value.ToString("dd MMM yyyy 'at' hh:mm tt")
+                : "recently";
+            var deviceDisplay = lastSession.DeviceInfo?.Contains("Chrome") == true ? "Chrome browser"
+                : lastSession.DeviceInfo?.Contains("Firefox") == true ? "Firefox browser"
+                : lastSession.DeviceInfo?.Contains("Mobile") == true ? "mobile device"
+                : "another device";
+            throw new InvalidOperationException(
+                $"ACTIVE_SESSION|{lastLoginDisplay}|{activeSessions.Count}|{deviceDisplay}");
         }
 
         // Update tracking
         user.LastLoginAt    = DateTime.UtcNow;
         user.LoginCount    += 1;
-        user.ActiveSessions = 1;
+        user.ActiveSessions = 1; // Will have exactly 1 after BuildTokensAsync
 
         db.AttendanceLogs.Add(new AttendanceLog {
             UserId = user.Id, Action = "login",
@@ -239,8 +249,18 @@ public class AuthService(AppDbContext db, IConfiguration cfg, IEmailService emai
         var token = await db.RefreshTokens.Include(r => r.User)
             .FirstOrDefaultAsync(r => r.Token == refreshToken && !r.IsRevoked && r.ExpiresAt > DateTime.UtcNow);
         if (token is null) return null;
+
+        // Revoke the used refresh token
         token.IsRevoked = true;
+
+        // Revoke any other stale tokens for this user (keep only 1 active session)
+        var stale = await db.RefreshTokens
+            .Where(r => r.UserId == token.UserId && !r.IsRevoked && r.Token != refreshToken)
+            .ToListAsync();
+        foreach (var s in stale) s.IsRevoked = true;
+
         await db.SaveChangesAsync();
+        // BuildTokensAsync creates exactly 1 new token
         return await BuildTokensAsync(token.User, token.DeviceInfo);
     }
 
@@ -249,13 +269,27 @@ public class AuthService(AppDbContext db, IConfiguration cfg, IEmailService emai
         var token = await db.RefreshTokens.FirstOrDefaultAsync(r => r.Token == refreshToken);
         if (token is null) return;
 
-        // Log logout
-        db.AttendanceLogs.Add(new AttendanceLog { UserId = token.UserId, Action = "logout" });
+        // Revoke THIS token
         token.IsRevoked = true;
 
-        // Track last logout
+        // Also revoke ALL other active tokens for this user (kill all sessions on logout)
+        var otherTokens = await db.RefreshTokens
+            .Where(r => r.UserId == token.UserId && !r.IsRevoked && r.Token != refreshToken)
+            .ToListAsync();
+        foreach (var t in otherTokens) t.IsRevoked = true;
+
+        // Update user session tracking
         var user = await db.Users.FindAsync(token.UserId);
-        if (user is not null) user.LastLogoutAt = DateTime.UtcNow;
+        if (user is not null)
+        {
+            user.LastLogoutAt   = DateTime.UtcNow;
+            user.ActiveSessions = 0;  // Always 0 after logout
+        }
+
+        db.AttendanceLogs.Add(new AttendanceLog {
+            UserId = token.UserId, Action = "logout",
+            Note   = $"Logout — revoked {1 + otherTokens.Count} session(s)"
+        });
 
         await db.SaveChangesAsync();
     }
@@ -347,9 +381,12 @@ public class AuthService(AppDbContext db, IConfiguration cfg, IEmailService emai
             ExpiresAt = DateTime.UtcNow.AddDays(_refreshDays), DeviceInfo = deviceInfo,
         });
 
-        // Clean expired tokens
-        var expired = await db.RefreshTokens.Where(r => r.UserId == user.Id && r.ExpiresAt < DateTime.UtcNow).ToListAsync();
-        db.RefreshTokens.RemoveRange(expired);
+        // Clean up: remove expired tokens AND old revoked tokens (keep DB clean)
+        var toClean = await db.RefreshTokens
+            .Where(r => r.UserId == user.Id && 
+                   (r.ExpiresAt < DateTime.UtcNow || (r.IsRevoked && r.ExpiresAt < DateTime.UtcNow.AddDays(1))))
+            .ToListAsync();
+        db.RefreshTokens.RemoveRange(toClean);
 
         await db.SaveChangesAsync();
         return new AuthResponse(accessToken, refreshTokenValue, user.Role, user.Name, user.Id.ToString(), user.Picture);

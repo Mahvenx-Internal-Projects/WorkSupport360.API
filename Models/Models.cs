@@ -186,11 +186,62 @@ public class DemoRequest
     // Confirmed final budget after call
     public decimal? FinalBudget               { get; set; }
     [MaxLength(10)] public string? FinalBudgetType { get; set; }
+    // Express Interest flow
+    public bool     ClientInterested          { get; set; } = false;
+    public bool     FreelancerInterested      { get; set; } = false;
+    public decimal? ClientOfferedBudget       { get; set; }
+    [MaxLength(10)] public string? ClientBudgetType { get; set; }
+    [MaxLength(2000)] public string? ClientMessage { get; set; }
+    public DateTime? ClientInterestedAt       { get; set; }
+    public DateTime? FreelancerRespondedAt    { get; set; }
+    [MaxLength(30)] public string InterestStatus { get; set; } = "none"; // none|client_interested|freelancer_accepted|freelancer_declined|scheduled
     public DateTime CreatedAt                 { get; set; } = DateTime.UtcNow;
 
     public Client    Client     { get; set; } = null!;
     public Freelancer Freelancer { get; set; } = null!;
     public Meeting?  Meeting    { get; set; }
+}
+
+// ── Job Requirement ──────────────────────────────────────────
+public class JobRequirement
+{
+    [Key] public Guid Id               { get; set; } = Guid.NewGuid();
+    public Guid   ClientId             { get; set; }
+    [Required, MaxLength(200)] public string Title { get; set; } = "";
+    [MaxLength(5000)] public string JobDescription { get; set; } = "";
+    [MaxLength(500)]  public string? RequiredSkills { get; set; }
+    [MaxLength(50)]   public string? ExperienceMin  { get; set; }
+    [MaxLength(50)]   public string? ExperienceMax  { get; set; }
+    [MaxLength(20)]   public string  BudgetType     { get; set; } = "hourly";
+    public decimal?   BudgetMin        { get; set; }
+    public decimal?   BudgetMax        { get; set; }
+    [MaxLength(10)]   public string  Currency       { get; set; } = "USD";
+    [MaxLength(30)]   public string  WorkMode       { get; set; } = "remote";
+    public int?       HybridDaysPerWeek { get; set; }
+    [MaxLength(100)]  public string? Location       { get; set; }
+    [MaxLength(100)]  public string? WorkTimings    { get; set; }
+    [MaxLength(20)]   public string  EngagementType { get; set; } = "freelance";
+    [MaxLength(1000)] public string? Notes          { get; set; }
+    public int        OpenPositions    { get; set; } = 1;
+    [MaxLength(20)]   public string  Status         { get; set; } = "open";
+    public DateTime   CreatedAt        { get; set; } = DateTime.UtcNow;
+    public DateTime?  ClosedAt         { get; set; }
+    public Client  Client              { get; set; } = null!;
+    public ICollection<RequirementAssignment> Assignments { get; set; } = [];
+}
+
+public class RequirementAssignment
+{
+    [Key] public Guid Id               { get; set; } = Guid.NewGuid();
+    public Guid   RequirementId        { get; set; }
+    public Guid   FreelancerId         { get; set; }
+    [MaxLength(30)]  public string Status { get; set; } = "notified";
+    [MaxLength(1000)] public string? FreelancerNote { get; set; }
+    [MaxLength(1000)] public string? AdminNote      { get; set; }
+    public DateTime   AssignedAt       { get; set; } = DateTime.UtcNow;
+    public DateTime?  FreelancerRespondedAt { get; set; }
+    public JobRequirement Requirement  { get; set; } = null!;
+    public Freelancer    Freelancer    { get; set; } = null!;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -634,4 +685,49 @@ public class PlatformSetting
     [MaxLength(2000)]     public string Value { get; set; } = "";
     [MaxLength(200)]      public string? Description { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+// ── Inbox / Messaging ─────────────────────────────────────────
+public class MessageThread
+{
+    [Key] public Guid Id              { get; set; } = Guid.NewGuid();
+    [MaxLength(200)] public string Subject  { get; set; } = "Message";
+    public bool   IsAdminThread       { get; set; } = false;
+    public DateTime LastMessageAt     { get; set; } = DateTime.UtcNow;
+    public ICollection<InboxMessage>      Messages     { get; set; } = [];
+    public ICollection<ThreadParticipant> Participants { get; set; } = [];
+    public ICollection<MessageAttachment> Attachments  { get; set; } = [];
+}
+
+public class ThreadParticipant
+{
+    [Key] public Guid Id       { get; set; } = Guid.NewGuid();
+    public Guid ThreadId       { get; set; }
+    public Guid UserId         { get; set; }
+    public MessageThread Thread { get; set; } = null!;
+    public User User            { get; set; } = null!;
+}
+
+public class InboxMessage
+{
+    [Key] public Guid Id         { get; set; } = Guid.NewGuid();
+    public Guid   ThreadId       { get; set; }
+    public Guid   SenderId       { get; set; }
+    public Guid   RecipientId    { get; set; }
+    [MaxLength(4000)] public string Body { get; set; } = "";
+    public bool   IsRead         { get; set; } = false;
+    public DateTime SentAt       { get; set; } = DateTime.UtcNow;
+    public MessageThread Thread  { get; set; } = null!;
+    public User Sender           { get; set; } = null!;
+}
+
+public class MessageAttachment
+{
+    [Key] public Guid Id         { get; set; } = Guid.NewGuid();
+    public Guid   ThreadId       { get; set; }
+    [MaxLength(200)] public string FileName { get; set; } = "";
+    [MaxLength(500)] public string FileUrl  { get; set; } = "";
+    public Guid   UploadedBy     { get; set; }
+    public DateTime UploadedAt   { get; set; } = DateTime.UtcNow;
+    public MessageThread Thread  { get; set; } = null!;
 }

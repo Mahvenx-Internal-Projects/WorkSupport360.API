@@ -14,16 +14,15 @@ namespace WorkSupport360.API.Controllers;
 public class PublicController(AppDbContext db, IEmailService email) : ControllerBase
 {
     [HttpGet("stats")]
-    public async Task<IActionResult> Stats() => Ok(new
-    {
-        totalFreelancers = await db.Freelancers.CountAsync(f => f.IsVerified),
-        availableNow = await db.Freelancers.CountAsync(f => f.IsAvailable && f.IsVerified),
-        totalClients = await db.Clients.CountAsync(),
+    public async Task<IActionResult> Stats() => Ok(new {
+        totalFreelancers  = await db.Freelancers.CountAsync(f => f.IsVerified),
+        availableNow      = await db.Freelancers.CountAsync(f => f.IsAvailable && f.IsVerified),
+        totalClients      = await db.Clients.CountAsync(),
         completedProjects = await db.Projects.CountAsync(p => p.Status == "completed"),
-        totalPaidOut = Math.Round(await db.Payments.Where(p => p.Status == "paid").SumAsync(p => (decimal?)p.FreelancerAmount) ?? 0, 0),
-        avgRating = Math.Round(await db.Freelancers.Where(f => f.ReviewCount > 0).AverageAsync(f => (double?)f.Rating) ?? 4.8, 1),
-        successRate = 98,
-        countriesServed = 24,
+        totalPaidOut      = Math.Round(await db.Payments.Where(p => p.Status == "paid").SumAsync(p => (decimal?)p.FreelancerAmount) ?? 0, 0),
+        avgRating         = Math.Round(await db.Freelancers.Where(f => f.ReviewCount > 0).AverageAsync(f => (double?)f.Rating) ?? 4.8, 1),
+        successRate       = 98,
+        countriesServed   = 24,
     });
 
     [HttpGet("featured-freelancers")]
@@ -38,11 +37,11 @@ public class PublicController(AppDbContext db, IEmailService email) : Controller
             .Where(f => f.IsVerified)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(skill)) query = query.Where(f => f.Skills.Any(s => s.Skill.Contains(skill)));
+        if (!string.IsNullOrWhiteSpace(skill))  query = query.Where(f => f.Skills.Any(s => s.Skill.Contains(skill)));
         if (availableOnly == true) query = query.Where(f => f.IsAvailable);
-        if (minRate.HasValue) query = query.Where(f => f.HourlyRate >= minRate);
-        if (maxRate.HasValue) query = query.Where(f => f.HourlyRate <= maxRate);
-        if (minExp.HasValue) query = query.Where(f => f.TotalExp >= minExp);
+        if (minRate.HasValue)      query = query.Where(f => f.HourlyRate >= minRate);
+        if (maxRate.HasValue)      query = query.Where(f => f.HourlyRate <= maxRate);
+        if (minExp.HasValue)       query = query.Where(f => f.TotalExp >= minExp);
 
         var boosted = db.FeaturedBoosts.Where(fb => fb.IsActive && fb.StartsAt <= DateTime.UtcNow && fb.EndsAt >= DateTime.UtcNow).Select(fb => fb.FreelancerId);
         var total = await query.CountAsync();
@@ -50,23 +49,10 @@ public class PublicController(AppDbContext db, IEmailService email) : Controller
             .OrderByDescending(f => boosted.Contains(f.Id)).ThenByDescending(f => f.TrustScore).ThenByDescending(f => f.Rating)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(f => new {
-                f.Id,
-                f.AliasName,
-                f.CurrentRole,
-                f.TotalExp,
-                f.FreelanceExp,
-                f.HourlyRate,
-                f.Currency,
-                f.Rating,
-                f.ReviewCount,
-                f.TrustScore,
-                f.Tier,
-                f.IsAvailable,
-                f.Country,
-                f.Timezone,
-                f.CompletedProjects,
-                f.ResponseTimeMinutes,
-                f.Bio,
+                f.Id, f.AliasName, f.CurrentRole, f.TotalExp, f.FreelanceExp,
+                f.HourlyRate, f.Currency, f.Rating, f.ReviewCount,
+                f.TrustScore, f.Tier, f.IsAvailable, f.Country, f.Timezone,
+                f.CompletedProjects, f.ResponseTimeMinutes, f.Bio,
                 Skills = f.Skills.Select(s => s.Skill).Take(5).ToList(),
                 Badges = f.Badges.Select(b => b.Badge).ToList(),
                 IsFeatured = boosted.Contains(f.Id),
@@ -89,7 +75,6 @@ public class PublicController(AppDbContext db, IEmailService email) : Controller
         await db.Faqs.Where(f => f.Id == id).ExecuteUpdateAsync(s => s.SetProperty(f => f.HelpfulCount, f => f.HelpfulCount + 1));
         return Ok();
     }
-
     [HttpGet("plans")]
     public async Task<IActionResult> GetPlans()
     {
@@ -126,7 +111,9 @@ public class PublicController(AppDbContext db, IEmailService email) : Controller
             p.MaxProjects,
             p.HasPrioritySupport,
             p.HasDedicatedManager,
-            Features = JsonSerializer.Deserialize<List<string>>(p.FeaturesJson) ?? new List<string>()
+            Features = string.IsNullOrWhiteSpace(p.FeaturesJson)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(p.FeaturesJson) ?? new List<string>()
         });
 
         return Ok(result);
@@ -152,18 +139,8 @@ public class PublicController(AppDbContext db, IEmailService email) : Controller
         var q = db.Freelancers.Include(f => f.Skills).Where(f => f.IsAvailable && f.IsVerified).AsQueryable();
         if (!string.IsNullOrWhiteSpace(skill)) q = q.Where(f => f.Skills.Any(s => s.Skill.Contains(skill)));
         return Ok(await q.OrderByDescending(f => f.TrustScore).Take(16)
-            .Select(f => new {
-                f.Id,
-                f.AliasName,
-                f.CurrentRole,
-                f.HourlyRate,
-                f.Currency,
-                f.Rating,
-                f.TrustScore,
-                f.ResponseTimeMinutes,
-                f.Bio,
-                Skills = f.Skills.Select(s => s.Skill).Take(4).ToList()
-            }).ToListAsync());
+            .Select(f => new { f.Id, f.AliasName, f.CurrentRole, f.HourlyRate, f.Currency, f.Rating, f.TrustScore, f.ResponseTimeMinutes, f.Bio,
+                Skills = f.Skills.Select(s => s.Skill).Take(4).ToList() }).ToListAsync());
     }
 }
 
@@ -180,16 +157,14 @@ public class SubscriptionsController(AppDbContext db, IEmailService email) : Con
         var client = await db.Clients.FirstOrDefaultAsync(c => c.UserId == Me);
         if (client is null) return Forbid();
         var sub = await db.ClientSubscriptions.Include(s => s.Plan).Where(s => s.ClientId == client.Id && s.Status == "active").OrderByDescending(s => s.StartDate).FirstOrDefaultAsync();
-        return Ok(new
-        {
+        return Ok(new {
             planKey = sub?.Plan?.PlanKey ?? client.Plan,
             planName = sub?.Plan?.Name ?? client.Plan.ToUpper(),
             hoursIncluded = sub?.Plan?.HoursIncluded ?? client.HoursIncluded,
             hoursUsed = client.HoursUsed,
             hoursRemaining = Math.Max(0, (sub?.Plan?.HoursIncluded ?? client.HoursIncluded) - client.HoursUsed),
             commissionRate = sub?.Plan?.CommissionRate ?? 15,
-            status = sub?.Status ?? "payg",
-            endDate = sub?.EndDate,
+            status = sub?.Status ?? "payg", endDate = sub?.EndDate,
         });
     }
 
@@ -200,7 +175,7 @@ public class SubscriptionsController(AppDbContext db, IEmailService email) : Con
         if (client is null) return Forbid();
         var plan = await db.SubscriptionPlans.FirstOrDefaultAsync(p => p.PlanKey == dto.PlanKey);
         if (plan is null) return NotFound(new { message = "Plan not found" });
-        var price = dto.BillingCycle == "yearly" ? plan.PriceYearly : plan.PriceMonthly;
+        var price   = dto.BillingCycle == "yearly" ? plan.PriceYearly : plan.PriceMonthly;
         var endDate = dto.BillingCycle == "yearly" ? DateTime.UtcNow.AddYears(1) : DateTime.UtcNow.AddMonths(1);
         await db.ClientSubscriptions.Where(s => s.ClientId == client.Id && s.Status == "active").ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, "cancelled").SetProperty(x => x.CancelledAt, DateTime.UtcNow));
         var sub = new ClientSubscription { ClientId = client.Id, PlanId = plan.Id, BillingCycle = dto.BillingCycle, AmountPaid = price, Currency = dto.Currency ?? "USD", Status = "active", StartDate = DateTime.UtcNow, EndDate = endDate, PaymentMethod = dto.PaymentMethod };
@@ -231,13 +206,9 @@ public class QuickSupportController(AppDbContext db, IEmailService email) : Cont
         var fee = fl.HourlyRate * 0.20m;
         var session = new QuickSupportSession
         {
-            ClientId = client?.Id,
-            FreelancerId = dto.FreelancerId,
-            Topic = dto.Topic,
-            Rate = fl.HourlyRate,
-            Currency = fl.Currency,
-            Platform = dto.Platform ?? "zoom",
-            PlatformFee = fee,
+            ClientId = client?.Id, FreelancerId = dto.FreelancerId,
+            Topic = dto.Topic, Rate = fl.HourlyRate, Currency = fl.Currency,
+            Platform = dto.Platform ?? "zoom", PlatformFee = fee,
             ClientContactEmail = dto.ClientEmail,
         };
         db.QuickSupportSessions.Add(session);
@@ -271,21 +242,21 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         {
             // Guest ticket — we store contact info in ticket itself
             // For guests: use a special "guest" user or null foreign key
-            // We make UserId nullable-safe by using a placeholder system user or admin
-            var guestUserId = await db.Users
-                .Where(u => u.Role == "admin")
-                .Select(u => u.Id)
-                .FirstOrDefaultAsync();
+        // We make UserId nullable-safe by using a placeholder system user or admin
+        var guestUserId = await db.Users
+            .Where(u => u.Role == "admin")
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync();
 
-            var ticket = new SupportTicket
+        var ticket = new SupportTicket
             {
-                UserId = guestUserId, // use admin as placeholder for guest tickets
-                Subject = dto.Subject ?? "Support Request",
-                Category = dto.Category ?? "general",
-                Priority = dto.Priority ?? "normal",
-                Status = "open",
-                UserType = dto.UserType ?? "visitor",
-                BotSummary = dto.BotSummary,
+                UserId       = guestUserId, // use admin as placeholder for guest tickets
+                Subject      = dto.Subject ?? "Support Request",
+                Category     = dto.Category ?? "general",
+                Priority     = dto.Priority ?? "normal",
+                Status       = "open",
+                UserType     = dto.UserType ?? "visitor",
+                BotSummary   = dto.BotSummary,
                 ContactEmail = dto.ContactEmail,
                 ContactPhone = string.IsNullOrWhiteSpace(dto.ContactPhone) ? null : dto.ContactPhone,
                 LastMessageAt = DateTime.UtcNow,
@@ -302,13 +273,13 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
 
         var authTicket = new SupportTicket
         {
-            UserId = userId.Value,
-            Subject = dto.Subject ?? "Support Request",
-            Category = dto.Category ?? "general",
-            Priority = dto.Priority ?? "normal",
-            Status = "open",
-            UserType = dto.UserType,
-            BotSummary = dto.BotSummary,
+            UserId       = userId.Value,
+            Subject      = dto.Subject ?? "Support Request",
+            Category     = dto.Category ?? "general",
+            Priority     = dto.Priority ?? "normal",
+            Status       = "open",
+            UserType     = dto.UserType,
+            BotSummary   = dto.BotSummary,
             ContactEmail = dto.ContactEmail,
             ContactPhone = dto.ContactPhone,
             LastMessageAt = DateTime.UtcNow,
@@ -323,12 +294,9 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
 
         // Notify user about ticket + who's assigned
         var assigned = await db.SupportTickets.Where(t => t.Id == authTicket.Id).Select(t => t.AssignedAgentName).FirstOrDefaultAsync();
-        db.Notifications.Add(new Notification
-        {
-            UserId = userId.Value,
-            Type = "support",
-            Priority = "normal",
-            Title = "Support ticket created ✅",
+        db.Notifications.Add(new Notification {
+            UserId = userId.Value, Type = "support", Priority = "normal",
+            Title  = "Support ticket created ✅",
             Message = assigned != null
                 ? $"Ticket #{authTicket.Id.ToString()[..8]} assigned to {assigned}. They will respond shortly."
                 : $"Ticket #{authTicket.Id.ToString()[..8]} created. An agent will pick it up shortly.",
@@ -366,12 +334,9 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         // Notify assigned agent
         if (ticket.AssignedAgentId.HasValue)
         {
-            db.Notifications.Add(new Notification
-            {
-                UserId = ticket.AssignedAgentId.Value,
-                Type = "support",
-                Priority = "high",
-                Title = $"New message — Ticket #{id.ToString()[..8]}",
+            db.Notifications.Add(new Notification {
+                UserId = ticket.AssignedAgentId.Value, Type = "support", Priority = "high",
+                Title  = $"New message — Ticket #{id.ToString()[..8]}",
                 Message = content.Length > 100 ? content[..100] + "..." : content,
                 ActionUrl = "/admin/support",
             });
@@ -387,14 +352,13 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
     {
         var t = await db.SupportTickets.FirstOrDefaultAsync(x => x.Id == id);
         if (t is null) return NotFound();
-        return Ok(new
-        {
+        return Ok(new {
             t.Status,
             t.AssignedAgentName,
-            assignedAt = t.AssignedAt,
+            assignedAt  = t.AssignedAt,
             t.Priority,
             t.LastMessageAt,
-            isAssigned = t.AssignedAgentId.HasValue,
+            isAssigned  = t.AssignedAgentId.HasValue,
             // How long since ticket was created
             waitMinutes = (int)(DateTime.UtcNow - t.CreatedAt).TotalMinutes,
         });
@@ -408,17 +372,9 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         return Ok(await db.SupportTickets
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.LastMessageAt)
-            .Select(t => new {
-                t.Id,
-                t.Subject,
-                t.Category,
-                t.Status,
-                t.Priority,
-                t.AssignedAgentName,
-                t.CreatedAt,
-                t.LastMessageAt,
-                MessageCount = t.Messages.Count
-            })
+            .Select(t => new { t.Id, t.Subject, t.Category, t.Status, t.Priority,
+                t.AssignedAgentName, t.CreatedAt, t.LastMessageAt,
+                MessageCount = t.Messages.Count })
             .ToListAsync());
     }
 
@@ -432,19 +388,9 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         if (!string.IsNullOrEmpty(status)) q = q.Where(t => t.Status == status);
         var items = await q.OrderByDescending(t => t.LastMessageAt)
             .Select(t => new {
-                t.Id,
-                t.Subject,
-                t.Category,
-                t.Status,
-                t.Priority,
-                t.AssignedAgentName,
-                t.UserType,
-                t.ContactEmail,
-                t.ContactPhone,
-                t.BotSummary,
-                t.IsRead,
-                t.CreatedAt,
-                t.LastMessageAt,
+                t.Id, t.Subject, t.Category, t.Status, t.Priority,
+                t.AssignedAgentName, t.UserType, t.ContactEmail, t.ContactPhone,
+                t.BotSummary, t.IsRead, t.CreatedAt, t.LastMessageAt,
                 UserName = t.User != null ? t.User.Name : "Guest",
                 UserEmail = t.User != null ? t.User.Email : t.ContactEmail,
                 MessageCount = t.Messages.Count,
@@ -457,25 +403,22 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
     public async Task<IActionResult> Assign(Guid id)
     {
         var agentId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var agent = await db.Users.FindAsync(agentId);
-        var ticket = await db.SupportTickets.FindAsync(id);
+        var agent   = await db.Users.FindAsync(agentId);
+        var ticket  = await db.SupportTickets.FindAsync(id);
         if (ticket is null) return NotFound();
 
-        ticket.AssignedAgentId = agentId;
+        ticket.AssignedAgentId   = agentId;
         ticket.AssignedAgentName = agent?.Name ?? "Admin";
-        ticket.AssignedAt = DateTime.UtcNow;
-        ticket.Status = "assigned";
-        ticket.IsRead = true;
+        ticket.AssignedAt        = DateTime.UtcNow;
+        ticket.Status            = "assigned";
+        ticket.IsRead            = true;
         await db.SaveChangesAsync();
 
         // Notify user
         if (ticket.UserId != Guid.Empty)
-            db.Notifications.Add(new Notification
-            {
-                UserId = ticket.UserId,
-                Type = "support",
-                Priority = "high",
-                Title = "Agent assigned to your ticket 👤",
+            db.Notifications.Add(new Notification {
+                UserId = ticket.UserId, Type = "support", Priority = "high",
+                Title  = "Agent assigned to your ticket 👤",
                 Message = $"{agent?.Name ?? "Admin"} has picked up your support ticket and will respond shortly.",
             });
         await db.SaveChangesAsync();
@@ -487,15 +430,14 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
     public async Task<IActionResult> AdminReply(Guid id, [FromBody] AdminReplyDto dto)
     {
         var agentId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var ticket = await db.SupportTickets.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == id);
+        var ticket  = await db.SupportTickets.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == id);
         if (ticket is null) return NotFound();
 
-        db.SupportMessages.Add(new SupportMessage
-        {
-            TicketId = id,
-            SenderId = agentId,
+        db.SupportMessages.Add(new SupportMessage {
+            TicketId   = id,
+            SenderId   = agentId,
             SenderRole = "agent",
-            Content = dto.Message,
+            Content    = dto.Message,
         });
         ticket.LastMessageAt = DateTime.UtcNow;
         if (dto.Resolve) { ticket.Status = "resolved"; ticket.ResolvedAt = DateTime.UtcNow; }
@@ -506,12 +448,9 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         // Notify user
         if (ticket.UserId != Guid.Empty)
         {
-            db.Notifications.Add(new Notification
-            {
-                UserId = ticket.UserId,
-                Type = "support",
-                Priority = "high",
-                Title = dto.Resolve ? "Ticket resolved ✅" : "Agent replied to your ticket 💬",
+            db.Notifications.Add(new Notification {
+                UserId = ticket.UserId, Type = "support", Priority = "high",
+                Title  = dto.Resolve ? "Ticket resolved ✅" : "Agent replied to your ticket 💬",
                 Message = dto.Message.Length > 100 ? dto.Message[..100] + "..." : dto.Message,
                 ActionUrl = "/support",
             });
@@ -574,18 +513,17 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         var ticket = await db.SupportTickets.FindAsync(ticketId);
         if (ticket == null) return;
 
-        ticket.AssignedAgentId = pick.Id;
+        ticket.AssignedAgentId   = pick.Id;
         ticket.AssignedAgentName = pick.Name;
-        ticket.AssignedAt = DateTime.UtcNow;
-        ticket.Status = "assigned";
+        ticket.AssignedAt        = DateTime.UtcNow;
+        ticket.Status            = "assigned";
 
         // Notify the assigned agent
-        db.Notifications.Add(new Notification
-        {
-            UserId = pick.Id,
-            Type = "support",
+        db.Notifications.Add(new Notification {
+            UserId  = pick.Id,
+            Type    = "support",
             Priority = "urgent",
-            Title = $"🎫 New support ticket assigned to you",
+            Title   = $"🎫 New support ticket assigned to you",
             Message = $"Ticket #{ticketId.ToString()[..8].ToUpper()} — {ticket.Subject}. User type: {ticket.UserType ?? "unknown"}.",
             ActionUrl = "/agent",
         });
@@ -593,17 +531,15 @@ public class SupportController(AppDbContext db, IEmailService email) : Controlle
         await db.SaveChangesAsync();
     }
 
+    // ── Notify admins ────────────────────────────────
     // ── Helper: notify admins ────────────────────────────────
     private async Task NotifyAdmins(Guid ticketId, string subject, string contact, string firstMsg)
     {
         var admins = await db.Users.Where(u => u.Role == "admin").ToListAsync();
         foreach (var admin in admins)
-            db.Notifications.Add(new Notification
-            {
-                UserId = admin.Id,
-                Type = "support",
-                Priority = "high",
-                Title = $"🎫 New support ticket — {subject}",
+            db.Notifications.Add(new Notification {
+                UserId = admin.Id, Type = "support", Priority = "high",
+                Title  = $"🎫 New support ticket — {subject}",
                 Message = $"From: {contact}. {(firstMsg.Length > 80 ? firstMsg[..80] + "..." : firstMsg)}",
                 ActionUrl = "/admin/support",
             });
@@ -639,6 +575,7 @@ public record CreateSupportTicketDto(
 );
 public record AdminReplyDto(string Message, bool Resolve = false);
 
+
 //[ApiController, Route("api/admin/revenue"), Authorize(Roles = "admin")]
 //public class RevenueController(AppDbContext db) : ControllerBase
 //{
@@ -647,13 +584,18 @@ public record AdminReplyDto(string Message, bool Resolve = false);
 //    {
 //        var earnings = await db.PlatformEarnings.GroupBy(e => e.Source)
 //            .Select(g => new { source = g.Key, total = g.Sum(e => e.Amount), count = g.Count() }).ToListAsync();
-//        return Ok(new
-//        {
+//        return Ok(new {
 //            breakdown = earnings,
-//            commissionRevenue = await db.Payments.Where(p => p.Status == "paid").SumAsync(p => (decimal?)p.Commission) ?? 0,
+//            commissionRevenue   = await db.Payments.Where(p => p.Status == "paid").SumAsync(p => (decimal?)p.Commission) ?? 0,
 //            subscriptionRevenue = await db.ClientSubscriptions.Where(s => s.Status == "active").SumAsync(s => (decimal?)s.AmountPaid) ?? 0,
 //            quickSupportRevenue = await db.QuickSupportSessions.Where(q => q.Status == "completed").SumAsync(q => (decimal?)q.PlatformFee) ?? 0,
-//            pendingPayouts = await db.Payments.Where(p => p.PayoutStatus == "pending" && p.Status == "paid").SumAsync(p => (decimal?)p.FreelancerAmount) ?? 0,
+//            pendingPayouts      = await db.Payments.Where(p => p.PayoutStatus == "pending" && p.Status == "paid").SumAsync(p => (decimal?)p.FreelancerAmount) ?? 0,
 //        });
 //    }
 //}
+
+public static class StringExtensions
+{
+    public static string Truncate(this string s, int max) =>
+        s == null ? "" : s.Length <= max ? s : s[..max] + "…";
+}

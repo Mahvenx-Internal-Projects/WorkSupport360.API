@@ -13,8 +13,59 @@ public class AuthController(IAuthService auth, IConfiguration cfg) : ControllerB
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
-        var result = await auth.LoginAsync(req);
-        return result is null ? Unauthorized(new { message = "Invalid email or password" }) : Ok(result);
+        try
+        {
+            var result = await auth.LoginAsync(req);
+            return result is null
+                ? Unauthorized(new { message = "Invalid email or password" })
+                : Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "EMAIL_NOT_VERIFIED")
+        {
+            return StatusCode(403, new {
+                message = "EMAIL_NOT_VERIFIED",
+                detail  = "Please activate your account. Check your email for the verification link.",
+                email   = req.Email,
+            });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("ACTIVE_SESSION|"))
+        {
+            var p = ex.Message.Split('|');
+            return StatusCode(409, new {
+                message      = "ACTIVE_SESSION",
+                lastLogin    = p.Length > 1 ? p[1] : "recently",
+                sessionCount = p.Length > 2 ? p[2] : "1",
+                device       = p.Length > 3 ? p[3] : "another device",
+                email        = req.Email,
+            });
+        }
+    }
+
+    [HttpPost("force-login")]
+    public async Task<IActionResult> ForceLogin([FromBody] LoginRequest req)
+    {
+        try
+        {
+            var result = await auth.ForceLoginAsync(req);
+            return result is null
+                ? Unauthorized(new { message = "Invalid email or password" })
+                : Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "EMAIL_NOT_VERIFIED")
+        {
+            return StatusCode(403, new { message = "EMAIL_NOT_VERIFIED", email = req.Email });
+        }
+    }
+
+    [HttpGet("session-info"), Authorize]
+    public IActionResult SessionInfo()
+    {
+        return Ok(new {
+            userId = User.FindFirstValue(ClaimTypes.NameIdentifier),
+            email  = User.FindFirstValue(ClaimTypes.Email),
+            role   = User.FindFirstValue(ClaimTypes.Role),
+            name   = User.FindFirstValue(ClaimTypes.Name),
+        });
     }
 
     [HttpPost("google")]

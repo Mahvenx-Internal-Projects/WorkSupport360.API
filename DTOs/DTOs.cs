@@ -80,7 +80,18 @@ public record DemoRequestDto(
     string SessionType, DateTime PreferredDateTime, int DurationMinutes,
     decimal BudgetMin, decimal BudgetMax, string BudgetType, string Currency,
     string Description, string Status, string? AdminNotes,
-    decimal? FinalBudget, string? FinalBudgetType, DateTime CreatedAt);
+    decimal? FinalBudget, string? FinalBudgetType, DateTime CreatedAt,
+    // Interest fields
+    bool ClientInterested = false,
+    decimal? ClientOfferedBudget = null,
+    string? ClientBudgetType = null,
+    string? ClientMessage = null,
+    DateTime? ClientInterestedAt = null,
+    string InterestStatus = "none",
+    string? FreelancerAliasName = null,
+    string? ClientEmail = null,
+    string? ClientCompany = null,
+    string? FreelancerEmail = null);
 
 public record UpdateRequestStatusDto(string Status, string? AdminNotes,
     decimal? FinalBudget = null, string? FinalBudgetType = null);
