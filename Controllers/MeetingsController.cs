@@ -9,6 +9,7 @@ using WorkSupport360.API.Services;
 
 namespace WorkSupport360.API.Controllers;
 
+
 [ApiController, Route("api/meetings"), Authorize]
 public class MeetingsController(AppDbContext db, IEmailService email) : ControllerBase
 {
