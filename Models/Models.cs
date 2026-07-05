@@ -731,3 +731,44 @@ public class MessageAttachment
     public DateTime UploadedAt   { get; set; } = DateTime.UtcNow;
     public MessageThread Thread  { get; set; } = null!;
 }
+public class Requirement
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClientUserId { get; set; }
+    public string Title { get; set; } = "";
+    public string SkillsRequired { get; set; } = "";
+    public string HoursPerEngagement { get; set; } = "";
+    public int FreelancerCount { get; set; } = 1;
+    public decimal BudgetMin { get; set; }
+    public decimal BudgetMax { get; set; }
+    public string Currency { get; set; } = "INR";
+    public string? Duration { get; set; }
+    public string? DurationType { get; set; }
+    public string? WorkMode { get; set; } = "remote";
+    public string? Description { get; set; }
+    public string? CompanyName { get; set; }
+    public string? ContactName { get; set; }
+    public string? Urgency { get; set; } = "normal";
+    public string? PreferredStartDate { get; set; }
+    public string Status { get; set; } = "pending";
+    // pending | open | allocated | closed | rejected
+    public string? AdminNotes { get; set; }
+    public Guid? AllocatedFreelancerId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class RequirementApplication
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RequirementId { get; set; }
+    public Guid FreelancerUserId { get; set; }
+    public Guid? FreelancerId { get; set; }
+    public string? CoverNote { get; set; }
+    public string? ProposedRate { get; set; }
+    public string Status { get; set; } = "pending";
+    // pending | shortlisted | assigned | rejected
+    public string? AdminNote { get; set; }
+    public DateTime AppliedAt { get; set; } = DateTime.UtcNow;
+}
+

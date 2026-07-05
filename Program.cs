@@ -34,20 +34,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-var frontendUrl = builder.Configuration["App:FrontendUrl"] ?? "http://localhost:3000";
-builder.Services.AddCors(opts => opts.AddPolicy("Frontend", p =>
-    p.WithOrigins(
-        frontendUrl,
-        "https://worksupport.com",
-        "https://www.worksupport.com",
-        "http://worksupport.com",
-        "https://worksupport360.com",
-        "https://www.worksupport360.com",
-        "http://204.168.159.160:5001",
-        "http://localhost:3000",
-        "http://localhost:5001"
-     )
-     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
+builder.Services.AddCors(opt =>
+    opt.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+    )
+);
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c => {
@@ -70,7 +64,7 @@ if (app.Environment.IsDevelopment()) {
 }
 
 app.UseHttpsRedirection();
-app.UseCors("Frontend");
+app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

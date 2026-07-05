@@ -44,7 +44,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<InboxMessage>      InboxMessages      => Set<InboxMessage>();
     public DbSet<ThreadParticipant> ThreadParticipants => Set<ThreadParticipant>();
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
-
+    public DbSet<Requirement> Requirements { get; set; }
+    public DbSet<RequirementApplication> RequirementApplications { get; set; }
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);

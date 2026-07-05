@@ -1516,6 +1516,121 @@ namespace WorkSupport360.API.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("WorkSupport360.API.Models.Requirement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AdminNotes")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("AllocatedFreelancerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("BudgetMax")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("BudgetMin")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<Guid>("ClientUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("CompanyName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ContactName")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Duration")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DurationType")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("FreelancerCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HoursPerEngagement")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PreferredStartDate")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SkillsRequired")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Urgency")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("WorkMode")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Requirements");
+                });
+
+            modelBuilder.Entity("WorkSupport360.API.Models.RequirementApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AdminNote")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("AppliedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CoverNote")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("FreelancerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("FreelancerUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ProposedRate")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("RequirementId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RequirementApplications");
+                });
+
             modelBuilder.Entity("WorkSupport360.API.Models.RequirementAssignment", b =>
                 {
                     b.Property<Guid>("Id")

@@ -48,24 +48,24 @@ public class AuthService(AppDbContext db, IConfiguration cfg, IEmailService emai
 
         // Re-query active sessions from DB to get fresh state
         // (the Include may have stale data if logout happened in same context)
-        var activeSessions = await db.RefreshTokens
-            .Where(r => r.UserId == user.Id && !r.IsRevoked && r.ExpiresAt > DateTime.UtcNow)
-            .OrderByDescending(r => r.CreatedAt)
-            .ToListAsync();
+        //var activeSessions = await db.RefreshTokens
+        //    .Where(r => r.UserId == user.Id && !r.IsRevoked && r.ExpiresAt > DateTime.UtcNow)
+        //    .OrderByDescending(r => r.CreatedAt)
+        //    .ToListAsync();
 
-        if (activeSessions.Any())
-        {
-            var lastSession = activeSessions.First();
-            var lastLoginDisplay = user.LastLoginAt.HasValue 
-                ? user.LastLoginAt.Value.ToString("dd MMM yyyy 'at' hh:mm tt")
-                : "recently";
-            var deviceDisplay = lastSession.DeviceInfo?.Contains("Chrome") == true ? "Chrome browser"
-                : lastSession.DeviceInfo?.Contains("Firefox") == true ? "Firefox browser"
-                : lastSession.DeviceInfo?.Contains("Mobile") == true ? "mobile device"
-                : "another device";
-            throw new InvalidOperationException(
-                $"ACTIVE_SESSION|{lastLoginDisplay}|{activeSessions.Count}|{deviceDisplay}");
-        }
+        //if (activeSessions.Any())
+        //{
+        //    var lastSession = activeSessions.First();
+        //    var lastLoginDisplay = user.LastLoginAt.HasValue 
+        //        ? user.LastLoginAt.Value.ToString("dd MMM yyyy 'at' hh:mm tt")
+        //        : "recently";
+        //    var deviceDisplay = lastSession.DeviceInfo?.Contains("Chrome") == true ? "Chrome browser"
+        //        : lastSession.DeviceInfo?.Contains("Firefox") == true ? "Firefox browser"
+        //        : lastSession.DeviceInfo?.Contains("Mobile") == true ? "mobile device"
+        //        : "another device";
+        //    throw new InvalidOperationException(
+        //        $"ACTIVE_SESSION|{lastLoginDisplay}|{activeSessions.Count}|{deviceDisplay}");
+        //}
 
         // Update tracking
         user.LastLoginAt    = DateTime.UtcNow;

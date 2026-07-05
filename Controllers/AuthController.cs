@@ -28,17 +28,17 @@ public class AuthController(IAuthService auth, IConfiguration cfg) : ControllerB
                 email   = req.Email,
             });
         }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("ACTIVE_SESSION|"))
-        {
-            var p = ex.Message.Split('|');
-            return StatusCode(409, new {
-                message      = "ACTIVE_SESSION",
-                lastLogin    = p.Length > 1 ? p[1] : "recently",
-                sessionCount = p.Length > 2 ? p[2] : "1",
-                device       = p.Length > 3 ? p[3] : "another device",
-                email        = req.Email,
-            });
-        }
+        //catch (InvalidOperationException ex) when (ex.Message.StartsWith("ACTIVE_SESSION|"))
+        //{
+        //    var p = ex.Message.Split('|');
+        //    return StatusCode(409, new {
+        //        message      = "ACTIVE_SESSION",
+        //        lastLogin    = p.Length > 1 ? p[1] : "recently",
+        //        sessionCount = p.Length > 2 ? p[2] : "1",
+        //        device       = p.Length > 3 ? p[3] : "another device",
+        //        email        = req.Email,
+        //    });
+        //}
     }
 
     [HttpPost("force-login")]

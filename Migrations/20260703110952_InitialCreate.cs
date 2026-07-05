@@ -60,6 +60,22 @@ namespace WorkSupport360.API.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "MessageThreads",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Subject = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    IsAdminThread = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    LastMessageAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MessageThreads", x => x.Id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "PlatformEarnings",
                 columns: table => new
                 {
@@ -153,11 +169,38 @@ namespace WorkSupport360.API.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     LastLoginAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    LastLogoutAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                    LastLogoutAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    LoginCount = table.Column<int>(type: "int", nullable: false),
+                    ActiveSessions = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Users", x => x.Id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "MessageAttachments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ThreadId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    FileName = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    FileUrl = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    UploadedBy = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    UploadedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MessageAttachments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MessageAttachments_MessageThreads_ThreadId",
+                        column: x => x.ThreadId,
+                        principalTable: "MessageThreads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -284,6 +327,37 @@ namespace WorkSupport360.API.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "InboxMessages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ThreadId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    SenderId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    RecipientId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Body = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    IsRead = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_InboxMessages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_InboxMessages_MessageThreads_ThreadId",
+                        column: x => x.ThreadId,
+                        principalTable: "MessageThreads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_InboxMessages_Users_SenderId",
+                        column: x => x.SenderId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "Notifications",
                 columns: table => new
                 {
@@ -354,14 +428,54 @@ namespace WorkSupport360.API.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Priority = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    AssignedAgentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    AssignedAgentName = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AssignedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    UserType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    BotSummary = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ContactEmail = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ContactPhone = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    IsRead = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    ResolvedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                    ResolvedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    LastMessageAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SupportTickets", x => x.Id);
                     table.ForeignKey(
                         name: "FK_SupportTickets_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ThreadParticipants",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ThreadId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ThreadParticipants", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ThreadParticipants_MessageThreads_ThreadId",
+                        column: x => x.ThreadId,
+                        principalTable: "MessageThreads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ThreadParticipants_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -411,6 +525,57 @@ namespace WorkSupport360.API.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "JobRequirements",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ClientId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Title = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    JobDescription = table.Column<string>(type: "varchar(5000)", maxLength: 5000, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    RequiredSkills = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ExperienceMin = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ExperienceMax = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    BudgetType = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    BudgetMin = table.Column<decimal>(type: "decimal(65,30)", nullable: true),
+                    BudgetMax = table.Column<decimal>(type: "decimal(65,30)", nullable: true),
+                    Currency = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    WorkMode = table.Column<string>(type: "varchar(30)", maxLength: 30, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    HybridDaysPerWeek = table.Column<int>(type: "int", nullable: true),
+                    Location = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    WorkTimings = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    EngagementType = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Notes = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    OpenPositions = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    ClosedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_JobRequirements", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_JobRequirements_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "DemoRequests",
                 columns: table => new
                 {
@@ -435,6 +600,17 @@ namespace WorkSupport360.API.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     FinalBudget = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: true),
                     FinalBudgetType = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ClientInterested = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    FreelancerInterested = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    ClientOfferedBudget = table.Column<decimal>(type: "decimal(65,30)", nullable: true),
+                    ClientBudgetType = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ClientMessage = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ClientInterestedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    FreelancerRespondedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    InterestStatus = table.Column<string>(type: "varchar(30)", maxLength: 30, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
@@ -675,6 +851,40 @@ namespace WorkSupport360.API.Migrations
                         name: "FK_SupportMessages_SupportTickets_TicketId",
                         column: x => x.TicketId,
                         principalTable: "SupportTickets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "RequirementAssignments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    RequirementId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    FreelancerId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "varchar(30)", maxLength: 30, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    FreelancerNote = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AdminNote = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AssignedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    FreelancerRespondedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RequirementAssignments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RequirementAssignments_Freelancers_FreelancerId",
+                        column: x => x.FreelancerId,
+                        principalTable: "Freelancers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RequirementAssignments_JobRequirements_RequirementId",
+                        column: x => x.RequirementId,
+                        principalTable: "JobRequirements",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
@@ -1171,6 +1381,16 @@ namespace WorkSupport360.API.Migrations
                 column: "FreelancerId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_InboxMessages_SenderId",
+                table: "InboxMessages",
+                column: "SenderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_InboxMessages_ThreadId",
+                table: "InboxMessages",
+                column: "ThreadId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_InvoiceLineItems_InvoiceId",
                 table: "InvoiceLineItems",
                 column: "InvoiceId");
@@ -1202,6 +1422,11 @@ namespace WorkSupport360.API.Migrations
                 column: "TimesheetId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_JobRequirements_ClientId",
+                table: "JobRequirements",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Meetings_ClientId",
                 table: "Meetings",
                 column: "ClientId");
@@ -1216,6 +1441,11 @@ namespace WorkSupport360.API.Migrations
                 table: "Meetings",
                 column: "RequestId",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MessageAttachments_ThreadId",
+                table: "MessageAttachments",
+                column: "ThreadId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Milestones_ProjectId",
@@ -1279,6 +1509,16 @@ namespace WorkSupport360.API.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RequirementAssignments_FreelancerId",
+                table: "RequirementAssignments",
+                column: "FreelancerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RequirementAssignments_RequirementId",
+                table: "RequirementAssignments",
+                column: "RequirementId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Reviews_ClientId",
                 table: "Reviews",
                 column: "ClientId");
@@ -1301,6 +1541,16 @@ namespace WorkSupport360.API.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_SupportTickets_UserId",
                 table: "SupportTickets",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ThreadParticipants_ThreadId",
+                table: "ThreadParticipants",
+                column: "ThreadId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ThreadParticipants_UserId",
+                table: "ThreadParticipants",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -1364,6 +1614,9 @@ namespace WorkSupport360.API.Migrations
                 name: "FreelancerSkills");
 
             migrationBuilder.DropTable(
+                name: "InboxMessages");
+
+            migrationBuilder.DropTable(
                 name: "InvoiceLineItems");
 
             migrationBuilder.DropTable(
@@ -1371,6 +1624,9 @@ namespace WorkSupport360.API.Migrations
 
             migrationBuilder.DropTable(
                 name: "Meetings");
+
+            migrationBuilder.DropTable(
+                name: "MessageAttachments");
 
             migrationBuilder.DropTable(
                 name: "Milestones");
@@ -1400,10 +1656,16 @@ namespace WorkSupport360.API.Migrations
                 name: "RefreshTokens");
 
             migrationBuilder.DropTable(
+                name: "RequirementAssignments");
+
+            migrationBuilder.DropTable(
                 name: "Reviews");
 
             migrationBuilder.DropTable(
                 name: "SupportMessages");
+
+            migrationBuilder.DropTable(
+                name: "ThreadParticipants");
 
             migrationBuilder.DropTable(
                 name: "TimesheetEntries");
@@ -1421,7 +1683,13 @@ namespace WorkSupport360.API.Migrations
                 name: "Invoices");
 
             migrationBuilder.DropTable(
+                name: "JobRequirements");
+
+            migrationBuilder.DropTable(
                 name: "SupportTickets");
+
+            migrationBuilder.DropTable(
+                name: "MessageThreads");
 
             migrationBuilder.DropTable(
                 name: "Timesheets");

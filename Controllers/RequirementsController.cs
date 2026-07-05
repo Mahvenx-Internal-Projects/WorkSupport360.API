@@ -2,348 +2,347 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+
 using WorkSupport360.API.Data;
+using WorkSupport360.API.DTOs;
 using WorkSupport360.API.Models;
 using WorkSupport360.API.Services;
 
 namespace WorkSupport360.API.Controllers;
 
-[ApiController, Route("api/requirements")]
+[ApiController, Route("api/requirements"), Authorize]
 public class RequirementsController(AppDbContext db, IEmailService email) : ControllerBase
 {
-    // ── Client: Post a new requirement ───────────────────────
-    [HttpPost, Authorize(Roles = "client")]
+    private Guid Me => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private string Role => User.FindFirstValue(ClaimTypes.Role)!;
+
+    // ── PUBLIC: Job board for freelancers ─────────────────────────────
+    [HttpGet("public"), AllowAnonymous]
+    public async Task<IActionResult> GetPublic(
+        [FromQuery] string? skill, [FromQuery] string? type,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var q = db.Requirements
+            .Where(r => r.Status == "open")
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(skill))
+            q = q.Where(r => r.SkillsRequired.Contains(skill));
+        if (!string.IsNullOrEmpty(type))
+            q = q.Where(r => r.WorkMode == type);
+
+        var total = await q.CountAsync();
+        var items = await q
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(r => new {
+                r.Id,
+                r.Title,
+                r.SkillsRequired,
+                r.HoursPerEngagement,
+                r.FreelancerCount,
+                r.BudgetMin,
+                r.BudgetMax,
+                r.Currency,
+                r.Duration,
+                r.DurationType,
+                r.WorkMode,
+                r.Urgency,
+                r.CreatedAt,
+                r.Status,
+                CompanyName = r.CompanyName ?? "Confidential"
+            })
+            .ToListAsync();
+
+        return Ok(new { items, total, page, pageSize });
+    }
+
+
+   
+
+    // ── CLIENT: Get my own requirements ──────────────────────────────────
+    [HttpGet("mine"), Authorize(Roles = "client,Client")]
+    public async Task<IActionResult> GetMine()
+    {
+        var items = await db.Requirements
+            .Where(r => r.ClientUserId == Me)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+        return Ok(new { items, total = items.Count });
+    }
+
+    // ── CLIENT: Post new requirement ──────────────────────────────────
+    [HttpPost, Authorize(Roles = "client,admin,Client,Admin")]
     public async Task<IActionResult> Create([FromBody] CreateRequirementDto dto)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var client = await db.Clients.Include(c => c.User)
-            .FirstOrDefaultAsync(c => c.UserId == userId);
-        if (client is null) return NotFound("Client profile not found");
+        var user = await db.Users.FindAsync(Me);
+        var client = await db.Clients.FirstOrDefaultAsync(c => c.UserId == Me);
+        // Admin can post on behalf of clients — use their own user info
 
-        var req = new JobRequirement
+        var req = new Requirement
         {
-            ClientId       = client.Id,
-            Title          = dto.Title,
-            JobDescription = dto.JobDescription,
-            RequiredSkills = dto.RequiredSkills,
-            ExperienceMin  = dto.ExperienceMin,
-            ExperienceMax  = dto.ExperienceMax,
-            BudgetType     = dto.BudgetType ?? "hourly",
-            BudgetMin      = dto.BudgetMin,
-            BudgetMax      = dto.BudgetMax,
-            Currency       = dto.Currency ?? "USD",
-            WorkMode       = dto.WorkMode ?? "remote",
-            HybridDaysPerWeek = dto.HybridDaysPerWeek,
-            Location       = dto.Location,
-            WorkTimings    = dto.WorkTimings,
-            EngagementType = dto.EngagementType ?? "freelance",
-            OpenPositions  = dto.OpenPositions > 0 ? dto.OpenPositions : 1,
-            Notes          = dto.Notes,
-            Status         = "open",
+            ClientUserId = Me,
+            Title = dto.Title ?? $"{dto.SkillsRequired} Requirement",
+            SkillsRequired = dto.SkillsRequired,
+            HoursPerEngagement = dto.HoursPerEngagement,
+            FreelancerCount = dto.FreelancerCount,
+            BudgetMin = dto.BudgetMin,
+            BudgetMax = dto.BudgetMax,
+            Currency = dto.Currency ?? "INR",
+            Duration = dto.Duration,
+            DurationType = dto.DurationType,
+            WorkMode = dto.WorkMode ?? "remote",
+            Description = dto.Description,
+            CompanyName = dto.CompanyName ?? client?.CompanyName,
+            ContactName = dto.ContactName ?? user?.Name,
+            Urgency = dto.Urgency ?? "normal",
+            PreferredStartDate = dto.PreferredStartDate,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow,
         };
-        db.JobRequirements.Add(req);
 
-        // Notify all admins
-        var admins = await db.Users.Where(u => u.Role == "admin").ToListAsync();
-        foreach (var admin in admins)
-            db.Notifications.Add(new Notification {
-                UserId    = admin.Id,
-                Type      = "requirement",
-                Priority  = "normal",
-                Title     = $"📋 New requirement posted: {dto.Title}",
-                Message   = $"{client.CompanyName} posted a new requirement. {dto.OpenPositions} position(s). Budget: {dto.Currency} {dto.BudgetMin}–{dto.BudgetMax} ({dto.BudgetType})",
+        db.Requirements.Add(req);
+
+        // In-app notification to admin
+        var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == "admin");
+        if (adminUser != null)
+            db.Notifications.Add(new Notification
+            {
+                UserId = adminUser.Id,
+                Type = "requirement",
+                Priority = req.Urgency == "urgent" ? "high" : "normal",
+                Title = $"New requirement: {req.Title}",
+                Message = $"{req.CompanyName} posted a {req.Urgency} requirement for {req.SkillsRequired}. Review and approve.",
                 ActionUrl = "/admin/requirements",
             });
 
-        // Notify client
-        db.Notifications.Add(new Notification {
-            UserId    = userId,
-            Type      = "requirement",
-            Priority  = "normal",
-            Title     = $"✅ Requirement posted: {dto.Title}",
-            Message   = "Your requirement has been posted. Admin will review and assign suitable freelancers shortly.",
-            ActionUrl = "/client/requirements",
+        await db.SaveChangesAsync();
+
+        // Email to client
+        if (user?.Email != null)
+            await email.SendRequirementReceivedAsync(
+                user.Email, user.Name ?? "Client", req.Title,
+                req.SkillsRequired, req.Currency, req.BudgetMin, req.BudgetMax,
+                req.HoursPerEngagement, req.WorkMode ?? "remote");
+
+        // Email to admin
+        await email.SendAdminRequirementAlertAsync(
+            user?.Name ?? "Client", user?.Email ?? "",
+            req.Title, req.SkillsRequired,
+            req.Currency, req.BudgetMin, req.BudgetMax,
+            req.HoursPerEngagement, req.FreelancerCount,
+            req.Duration, req.DurationType,
+            req.WorkMode ?? "remote", req.Urgency ?? "normal",
+            req.Description ?? "");
+
+        return Ok(new
+        {
+            success = true,
+            requirementId = req.Id,
+            message = "Requirement submitted. Confirmation email sent."
         });
+    }
+
+    // ── ADMIN: Get all requirements ───────────────────────────────────
+    [HttpGet, Authorize(Roles = "admin")]
+    public async Task<IActionResult> GetAll([FromQuery] string? status,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var q = db.Requirements.AsQueryable();
+        if (!string.IsNullOrEmpty(status)) q = q.Where(r => r.Status == status);
+        var total = await q.CountAsync();
+        var items = await q.OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { items, total });
+    }
+
+    // ── ADMIN: Approve / edit / reject ────────────────────────────────
+    [HttpPatch("{id:guid}"), Authorize(Roles = "admin,Admin,client,Client")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateRequirementDto dto)
+    {
+        var req = await db.Requirements.FindAsync(id);
+        if (req is null) return NotFound();
+
+        // Client can only edit their own pending requirements
+        if (Role == "client" && req.ClientUserId != Me) return Forbid();
+        if (Role == "client" && !new[] { "pending", "open" }.Contains(req.Status))
+            return BadRequest(new { message = "Cannot edit a requirement that is already allocated or closed" });
+
+        var prevStatus = req.Status;
+        if (dto.Status != null) req.Status = dto.Status;
+        if (dto.Title != null) req.Title = dto.Title;
+        if (dto.AdminNotes != null) req.AdminNotes = dto.AdminNotes;
+        if (dto.SkillsRequired != null) req.SkillsRequired = dto.SkillsRequired;
+        if (dto.BudgetMin.HasValue) req.BudgetMin = dto.BudgetMin.Value;
+        if (dto.BudgetMax.HasValue) req.BudgetMax = dto.BudgetMax.Value;
+        req.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+
+        // Email client when approved → now live
+        if (prevStatus != "open" && dto.Status == "open")
+        {
+            var clientUser = await db.Users.FindAsync(req.ClientUserId);
+            if (clientUser?.Email != null)
+            {
+                db.Notifications.Add(new Notification
+                {
+                    UserId = clientUser.Id,
+                    Type = "requirement",
+                    Priority = "high",
+                    Title = "Your requirement is now LIVE! 🎉",
+                    Message = $"'{req.Title}' has been approved and posted to the freelancer job board.",
+                    ActionUrl = "/client",
+                });
+                await db.SaveChangesAsync();
+                await email.SendRequirementApprovedAsync(
+                    clientUser.Email, clientUser.Name ?? "Client", req.Title);
+            }
+        }
+
+        return Ok(new { success = true, requirement = req });
+    }
+
+    // ── ADMIN: Delete ─────────────────────────────────────────────────
+    [HttpDelete("{id:guid}"), Authorize(Roles = "admin,Admin,client,Client")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var req = await db.Requirements.FindAsync(id);
+        if (req is null) return NotFound();
+        if (Role == "client" && req.ClientUserId != Me) return Forbid();
+        if (Role == "client" && req.Status == "allocated")
+            return BadRequest(new { message = "Cannot delete — expert already assigned" });
+        db.Requirements.Remove(req);
+        await db.SaveChangesAsync();
+        return Ok(new { success = true });
+    }
+
+    // ── ADMIN: Allocate freelancer ────────────────────────────────────
+    [HttpPatch("{id:guid}/allocate"), Authorize(Roles = "admin")]
+    public async Task<IActionResult> Allocate(Guid id, [FromBody] AllocateRequirementDto dto)
+    {
+        var req = await db.Requirements.FindAsync(id);
+        if (req is null) return NotFound();
+        req.AllocatedFreelancerId = dto.FreelancerId;
+        req.Status = "allocated";
+        req.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        // Notify client
+        var clientUser = await db.Users.FindAsync(req.ClientUserId);
+        if (clientUser?.Email != null)
+        {
+            db.Notifications.Add(new Notification
+            {
+                UserId = clientUser.Id,
+                Type = "requirement",
+                Priority = "high",
+                Title = "Expert assigned to your requirement 🚀",
+                Message = $"A verified expert has been assigned for '{req.Title}'. Admin will contact you to schedule.",
+                ActionUrl = "/client",
+            });
+            await db.SaveChangesAsync();
+            await email.SendRequirementAssignedAsync(
+                clientUser.Email, clientUser.Name ?? "Client", req.Title);
+        }
+
+        return Ok(new { success = true });
+    }
+
+    // ── FREELANCER: Apply ─────────────────────────────────────────────
+    [HttpPost("{id:guid}/apply"), Authorize(Roles = "freelancer,Freelancer")]
+    public async Task<IActionResult> Apply(Guid id, [FromBody] ApplyRequirementDto dto)
+    {
+        var req = await db.Requirements.FindAsync(id);
+        if (req is null) return NotFound();
+
+        var exists = await db.RequirementApplications
+            .AnyAsync(a => a.RequirementId == id && a.FreelancerUserId == Me);
+        if (exists) return BadRequest(new { message = "Already applied" });
+
+        var freelancer = await db.Freelancers.FirstOrDefaultAsync(f => f.UserId == Me);
+        var user = await db.Users.FindAsync(Me);
+
+        var app = new RequirementApplication
+        {
+            RequirementId = id,
+            FreelancerUserId = Me,
+            FreelancerId = freelancer?.Id,
+            CoverNote = dto.CoverNote,
+            ProposedRate = dto.ProposedRate,
+            Status = "pending",
+            AppliedAt = DateTime.UtcNow,
+        };
+        db.RequirementApplications.Add(app);
+
+        // Notify admin
+        var admin = await db.Users.FirstOrDefaultAsync(u => u.Role == "admin");
+        if (admin != null)
+            db.Notifications.Add(new Notification
+            {
+                UserId = admin.Id,
+                Type = "application",
+                Priority = "normal",
+                Title = $"New application: {freelancer?.AliasName ?? user?.Name}",
+                Message = $"{freelancer?.AliasName ?? user?.Name} applied for '{req.Title}'. Proposed: {dto.ProposedRate}",
+                ActionUrl = "/admin/requirements",
+            });
+
+        await db.SaveChangesAsync();
 
         // Email admin
-        try
-        {
-            await email.SendRequestReceivedAsync(
-                "admin@worksupport360.com", "Admin",
-                dto.Title, dto.EngagementType ?? "requirement",
-                DateTime.UtcNow.AddDays(1));
-        }
-        catch { /* non-blocking */ }
+        await email.SendAdminApplicationAlertAsync(
+            freelancer?.AliasName ?? user?.Name ?? "Freelancer",
+            user?.Email ?? "", req.Title,
+            dto.ProposedRate ?? "", dto.CoverNote ?? "");
 
-        await db.SaveChangesAsync();
-        return Ok(new { id = req.Id, message = "Requirement posted! Admin will contact you shortly." });
+        return Ok(new { success = true, applicationId = app.Id });
     }
 
-    // ── Public: List open requirements (for homepage) ─────────
-    [HttpGet("public")]
-    public async Task<IActionResult> GetPublic([FromQuery] int page = 1, [FromQuery] int pageSize = 12)
+    // ── FREELANCER: My applications ───────────────────────────────────
+    [HttpGet("my-applications"), Authorize(Roles = "freelancer")]
+    public async Task<IActionResult> MyApplications()
     {
-        var q = db.JobRequirements
-            .Include(r => r.Client)
-            .Where(r => r.Status == "open")
-            .OrderByDescending(r => r.CreatedAt);
-        var total = await q.CountAsync();
-        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return Ok(new { total, items = items.Select(MapPublic) });
-    }
-
-    // ── Client: My requirements ────────────────────────────────
-    [HttpGet("mine"), Authorize(Roles = "client")]
-    public async Task<IActionResult> GetMine()
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var client = await db.Clients.FirstOrDefaultAsync(c => c.UserId == userId);
-        if (client is null) return NotFound();
-        var items = await db.JobRequirements
-            .Include(r => r.Assignments).ThenInclude(a => a.Freelancer).ThenInclude(f => f.User)
-            .Where(r => r.ClientId == client.Id)
-            .OrderByDescending(r => r.CreatedAt)
+        var apps = await db.RequirementApplications
+            .Where(a => a.FreelancerUserId == Me)
+            .OrderByDescending(a => a.AppliedAt)
             .ToListAsync();
-        return Ok(items.Select(MapFull));
-    }
 
-    // ── Admin: All requirements ────────────────────────────────
-    [HttpGet, Authorize(Roles = "admin")]
-    public async Task<IActionResult> GetAll([FromQuery] string? status)
-    {
-        var q = db.JobRequirements
-            .Include(r => r.Client).ThenInclude(c => c.User)
-            .Include(r => r.Assignments).ThenInclude(a => a.Freelancer).ThenInclude(f => f.User)
-            .AsQueryable();
-        if (!string.IsNullOrEmpty(status)) q = q.Where(r => r.Status == status);
-        var items = await q.OrderByDescending(r => r.CreatedAt).ToListAsync();
-        return Ok(items.Select(MapFull));
-    }
+        var reqIds = apps.Select(a => a.RequirementId).ToList();
+        var reqs = await db.Requirements
+            .Where(r => reqIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id);
 
-    // ── Admin: Assign freelancers ──────────────────────────────
-    [HttpPost("{id:guid}/assign"), Authorize(Roles = "admin")]
-    public async Task<IActionResult> Assign(Guid id, [FromBody] AssignFreelancersDto dto)
-    {
-        var req = await db.JobRequirements
-            .Include(r => r.Client).ThenInclude(c => c.User)
-            .Include(r => r.Assignments)
-            .FirstOrDefaultAsync(r => r.Id == id);
-        if (req is null) return NotFound();
-
-        var assigned = new List<string>();
-        foreach (var fId in dto.FreelancerIds)
-        {
-            // Skip if already assigned
-            if (req.Assignments.Any(a => a.FreelancerId == fId)) continue;
-
-            var fl = await db.Freelancers.Include(f => f.User)
-                .FirstOrDefaultAsync(f => f.Id == fId);
-            if (fl is null) continue;
-
-            db.RequirementAssignments.Add(new RequirementAssignment {
-                RequirementId = id,
-                FreelancerId  = fId,
-                Status        = "notified",
-                AdminNote     = dto.AdminNote,
-            });
-
-            // In-app notification to freelancer
-            db.Notifications.Add(new Notification {
-                UserId    = fl.UserId,
-                Type      = "requirement",
-                Priority  = "urgent",
-                Title     = $"🎯 New opportunity: {req.Title}",
-                Message   = $"A client has a requirement matching your skills! {req.BudgetType} budget: {req.Currency} {req.BudgetMin}–{req.BudgetMax}. Check your portal to view and respond.",
-                ActionUrl = "/freelancer/requirements",
-            });
-
-            // Email freelancer
-            try
-            {
-                await email.SendFreelancerAvailabilityCheckAsync(
-                    fl.User.Email, fl.User.Name,
-                    req.Client.CompanyName,
-                    req.CreatedAt.AddDays(3), "Video call", "");
-            }
-            catch { /* non-blocking */ }
-
-            assigned.Add(fl.AliasName);
-        }
-
-        if (req.Status == "open") req.Status = "in_progress";
-        await db.SaveChangesAsync();
-
-        return Ok(new {
-            message  = $"Assigned to {assigned.Count} freelancer(s): {string.Join(", ", assigned)}",
-            assigned = assigned.Count
+        var result = apps.Select(a => new {
+            a.Id,
+            a.RequirementId,
+            requirementTitle = reqs.TryGetValue(a.RequirementId, out var r) ? r.Title : "",
+            company = reqs.TryGetValue(a.RequirementId, out var r2) ? (r2.CompanyName ?? "Confidential") : "",
+            skills = reqs.TryGetValue(a.RequirementId, out var r3) ? r3.SkillsRequired : "",
+            type = reqs.TryGetValue(a.RequirementId, out var r4) ? r4.WorkMode : "",
+            rate = reqs.TryGetValue(a.RequirementId, out var r5) ? $"{r5.Currency}{r5.BudgetMin}–{r5.Currency}{r5.BudgetMax}/hr" : "",
+            status = a.Status,
+            a.AppliedAt,
+            adminNote = a.AdminNote,
         });
+
+        return Ok(result);
     }
-
-    // ── Freelancer: Respond (interested / declined) ────────────
-    [HttpPost("{id:guid}/respond"), Authorize(Roles = "freelancer")]
-    public async Task<IActionResult> Respond(Guid id, [FromBody] RespondToRequirementDto dto)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var fl = await db.Freelancers.FirstOrDefaultAsync(f => f.UserId == userId);
-        if (fl is null) return NotFound("Freelancer profile not found");
-
-        var assignment = await db.RequirementAssignments
-            .Include(a => a.Requirement).ThenInclude(r => r.Client).ThenInclude(c => c.User)
-            .FirstOrDefaultAsync(a => a.RequirementId == id && a.FreelancerId == fl.Id);
-        if (assignment is null) return NotFound("Assignment not found");
-
-        assignment.Status               = dto.Interested ? "interested" : "declined";
-        assignment.FreelancerNote       = dto.Note;
-        assignment.FreelancerRespondedAt = DateTime.UtcNow;
-
-        if (dto.Interested)
-        {
-            var req = assignment.Requirement;
-            // Notify admin
-            var admins = await db.Users.Where(u => u.Role == "admin").ToListAsync();
-            foreach (var admin in admins)
-                db.Notifications.Add(new Notification {
-                    UserId    = admin.Id,
-                    Type      = "requirement",
-                    Priority  = "urgent",
-                    Title     = $"🔥 Freelancer interested: {req.Title}",
-                    Message   = $"{fl.AliasName} is interested in '{req.Title}'. Note: {dto.Note?.Substring(0, Math.Min(dto.Note?.Length ?? 0, 80))}",
-                    ActionUrl = $"/admin/requirements/{id}",
-                });
-
-            // Notify client
-            if (req.Client?.User != null)
-                db.Notifications.Add(new Notification {
-                    UserId    = req.Client.User.Id,
-                    Type      = "requirement",
-                    Priority  = "normal",
-                    Title     = $"✅ Expert interested in your requirement!",
-                    Message   = $"An expert is interested in '{req.Title}'. Admin will coordinate and set up a meeting.",
-                    ActionUrl = "/client/requirements",
-                });
-        }
-
-        await db.SaveChangesAsync();
-        return Ok(new { message = dto.Interested ? "Great! Admin and the client have been notified. Expect a meeting invite soon." : "Response recorded." });
-    }
-
-    // ── Admin: Close requirement ───────────────────────────────
-    [HttpPatch("{id:guid}/close"), Authorize(Roles = "admin")]
-    public async Task<IActionResult> Close(Guid id, [FromBody] CloseRequirementDto dto)
-    {
-        var req = await db.JobRequirements.Include(r => r.Client).ThenInclude(c => c.User)
-            .FirstOrDefaultAsync(r => r.Id == id);
-        if (req is null) return NotFound();
-
-        req.Status   = dto.Status ?? "closed"; // closed | cancelled
-        req.ClosedAt = DateTime.UtcNow;
-
-        // Notify client
-        if (req.Client?.User != null)
-            db.Notifications.Add(new Notification {
-                UserId  = req.Client.User.Id,
-                Type    = "requirement",
-                Priority = "normal",
-                Title   = $"Requirement {req.Status}: {req.Title}",
-                Message = dto.Notes ?? $"Your requirement '{req.Title}' has been {req.Status}.",
-            });
-
-        await db.SaveChangesAsync();
-        return Ok(new { message = $"Requirement marked as {req.Status}" });
-    }
-
-    // ── Freelancer: My assigned requirements ───────────────────
-    [HttpGet("assigned"), Authorize(Roles = "freelancer")]
-    public async Task<IActionResult> GetAssigned()
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var fl = await db.Freelancers.FirstOrDefaultAsync(f => f.UserId == userId);
-        if (fl is null) return NotFound();
-
-        var assignments = await db.RequirementAssignments
-            .Include(a => a.Requirement).ThenInclude(r => r.Client)
-            .Where(a => a.FreelancerId == fl.Id)
-            .OrderByDescending(a => a.AssignedAt)
-            .ToListAsync();
-
-        return Ok(assignments.Select(a => new {
-            requirementId  = a.RequirementId,
-            assignmentId   = a.Id,
-            status         = a.Status,
-            adminNote      = a.AdminNote,
-            assignedAt     = a.AssignedAt,
-            respondedAt    = a.FreelancerRespondedAt,
-            requirement    = MapPublic(a.Requirement),
-        }));
-    }
-
-    private static object MapPublic(JobRequirement r) => new {
-        id             = r.Id,
-        title          = r.Title,
-        description    = r.JobDescription,
-        skills         = r.RequiredSkills,
-        experienceMin  = r.ExperienceMin,
-        experienceMax  = r.ExperienceMax,
-        budgetType     = r.BudgetType,
-        budgetMin      = r.BudgetMin,
-        budgetMax      = r.BudgetMax,
-        currency       = r.Currency,
-        workMode       = r.WorkMode,
-        hybridDays     = r.HybridDaysPerWeek,
-        location       = r.Location,
-        workTimings    = r.WorkTimings,
-        engagementType = r.EngagementType,
-        openPositions  = r.OpenPositions,
-        notes          = r.Notes,
-        status         = r.Status,
-        createdAt      = r.CreatedAt,
-        clientName     = r.Client?.CompanyName ?? "Company",
-    };
-
-    private static object MapFull(JobRequirement r) => new {
-        id             = r.Id,
-        title          = r.Title,
-        description    = r.JobDescription,
-        skills         = r.RequiredSkills,
-        experienceMin  = r.ExperienceMin,
-        experienceMax  = r.ExperienceMax,
-        budgetType     = r.BudgetType,
-        budgetMin      = r.BudgetMin,
-        budgetMax      = r.BudgetMax,
-        currency       = r.Currency,
-        workMode       = r.WorkMode,
-        hybridDays     = r.HybridDaysPerWeek,
-        location       = r.Location,
-        workTimings    = r.WorkTimings,
-        engagementType = r.EngagementType,
-        openPositions  = r.OpenPositions,
-        notes          = r.Notes,
-        status         = r.Status,
-        createdAt      = r.CreatedAt,
-        closedAt       = r.ClosedAt,
-        clientName     = r.Client?.CompanyName ?? "Company",
-        clientId       = r.ClientId,
-        clientEmail    = r.Client?.User?.Email,
-        assignmentCount = r.Assignments.Count,
-        interestedCount = r.Assignments.Count(a => a.Status == "interested"),
-        assignments    = r.Assignments.Select(a => new {
-            a.Id, a.Status, a.AdminNote, a.FreelancerNote, a.AssignedAt, a.FreelancerRespondedAt,
-            freelancerName  = a.Freelancer?.AliasName,
-            freelancerId    = a.FreelancerId,
-        }),
-    };
 }
 
-public record CreateRequirementDto(
-    string Title, string JobDescription,
-    string? RequiredSkills = null,
-    string? ExperienceMin = null, string? ExperienceMax = null,
-    string? BudgetType = "hourly", decimal? BudgetMin = null, decimal? BudgetMax = null, string? Currency = "USD",
-    string? WorkMode = "remote", int? HybridDaysPerWeek = null,
-    string? Location = null, string? WorkTimings = null,
-    string? EngagementType = "freelance", int OpenPositions = 1,
-    string? Notes = null
-);
-public record AssignFreelancersDto(List<Guid> FreelancerIds, string? AdminNote = null);
-public record RespondToRequirementDto(bool Interested, string? Note = null);
-public record CloseRequirementDto(string? Status = "closed", string? Notes = null);
+// ── DTOs ──────────────────────────────────────────────────────────────
+
+    public record CreateRequirementDto(
+        string? Title, string SkillsRequired, string HoursPerEngagement,
+        int FreelancerCount, decimal BudgetMin, decimal BudgetMax,
+        string? Currency, string? Duration, string? DurationType,
+        string? WorkMode, string? Description, string? CompanyName,
+        string? ContactName, string? Urgency, string? PreferredStartDate,
+        int MinExperience = 0);
+
+    public record UpdateRequirementDto(
+        string? Status, string? Title, string? AdminNotes,
+        string? SkillsRequired, decimal? BudgetMin, decimal? BudgetMax);
+
+    public record AllocateRequirementDto(Guid FreelancerId);
+    public record ApplyRequirementDto(string? CoverNote, string? ProposedRate);
