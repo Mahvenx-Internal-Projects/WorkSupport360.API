@@ -1,0 +1,73 @@
+```yaml
+name: Deploy WorkSupport360 API
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Build Project
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Publish Project
+        run: dotnet publish --configuration Release --output ./publish --no-build
+
+      - name: Stop Existing API
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            pkill -f "WorkSupport360.API.dll" || true
+
+      - name: Upload Published Files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "publish/*"
+          target: "/var/www/Worksupport/publish"
+          strip_components: 1
+          overwrite: true
+
+      - name: Start API
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /var/www/Worksupport/publish
+            nohup env ASPNETCORE_URLS=http://0.0.0.0:5001 \
+            ASPNETCORE_ENVIRONMENT=Production \
+            dotnet WorkSupport360.API.dll > app.log 2>&1 &
+            sleep 5
+
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            curl -I http://127.0.0.1:5001
+```
